@@ -1,6 +1,7 @@
 import sys
 import os.path
 import argparse
+import configparser
 import h5py
 import numpy as np
 import pandas as pd
@@ -13,6 +14,12 @@ from data_preproc_utils import create_regdna, intersect_peak_regdna, \
 ## Intialize logger
 logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
+
+## Load default configuration
+config = configparser.ConfigParser()
+config.read('config.ini')
+FEAT_UPSTREAM_BOUND = int(config['YEAST']['feat_upstream_bound'])
+FEAT_DOWNSTREAM_BOUND = int(config['YEAST']['feat_downstream_bound'])
 
 
 def parse_args(argv):
@@ -42,7 +49,8 @@ def parse_args(argv):
         '--gene_var', nargs='*',
         help='Csv file for gene expression variation data.')
     parser.add_argument(
-        '--feat_bound', nargs='*', type=int, default=(500, 500),
+        '--feat_bound', nargs='*', type=int, 
+        default=(FEAT_UPSTREAM_BOUND, FEAT_DOWNSTREAM_BOUND),
         help='Distance of upstream and downstream boundaries to TSS (in tuple).')
     parsed = parser.parse_args(argv[1:])
     return parsed
