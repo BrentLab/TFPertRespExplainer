@@ -1,0 +1,8 @@
+RESOURCES/*
+OUTPUT/*
+NOTEBOOKS/*
+
+!RESOURCES/.gitignore
+!OUTPUT/.gitignore
+!NOTEBOOKS/.gitignore
+
