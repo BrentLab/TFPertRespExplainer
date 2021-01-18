@@ -2,52 +2,46 @@
 
 ## Installation
 
-Use `miniconda` to manage packages. On HTCF cluster, load it as a module using `ml miniconda3`; or install and configure your own conda manager. 
+Use `miniconda` to manage packages. If on SLURM cluster, use `module load miniconda3`; otherwise, install and configure your own conda manager. 
 
 ```
-conda create -n pert_resp python=3.6.10
-conda activate pert_resp
-conda config --channel conda-forge --channel bioconda
-conda install numpy pandas scikit-learn ipython pybedtools biopython h5py multiprocess xgboost
+conda create -n tfpr_exp python=3.6.10
+conda activate tfpr_exp
+conda config --append channels conda-forge 
+conda config --append channels bioconda
+conda install numpy pandas scikit-learn jupyterlab pybedtools biopython h5py multiprocess xgboost shap
 conda deactivate
 ```
 
 ## Usage
 
-### 1. Define modeling parameters.
+### 1. Prepare resource data and save as hdf5 file.
 
 ```
-UP_BOUND=1000
-DOWN_BOUND=500
-BINS=15
-ALGORITHM=xgb_classifier
-
-LABEL_FILE=RESOURCES/ZEV_15min_shrunkenData.csv
-FEAT_FILE=OUTPUT/YEAST/FeatData.h5
-OUTPUT_DIR=OUTPUT/YEAST/tss${UP_BOUND}to${DOWN_BOUND}b_${BINS}bins
+$ python3 CODE/preprocess_data.py \
+    -o OUTPUT/h5_data/yeast_s288c_data.h5 \
+    -a RESOURCES/Yeast_genome/S288C_R64-1-1_sacCer3_orf.bed \
+    -f RESOURCES/Yeast_genome/S288C_R64-1-1_sacCer3_genome.fa \
+    --tf_bind RESOURCES/Yeast_CallingCards/*.bed \
+    --hist_mod RESOURCES/Yeast_HistoneMarks_Weiner2014/*.bed \
+    --chrom_acc RESOURCES/Yeast_ChromAcc_Schep2015/BY4741_ypd_osm_0min.occ.bed \
+    --gene_expr RESOURCES/Yeast_ZEV_IDEA/[...].csv \
+    --gene_var RESOURCES/Yeast_ZEV_IDEA/[...].csv 
 ```
 
-### 2. Prepare resource data into hdf5 file.
+### 2. Explain genomic features that are predictive of which genes would respond to TF perturbation.
 
 ```
-python3 CODE/preprocess_data.py -o OUTPUT/h5_data/yeast_dna_cc_hm_atac_${UP_BOUND}to${DOWN_BOUND}b_expr.h5 -a RESOURCES/Yeast_genome/S288C_R64-1-1_sacCer3_orf.bed -f RESOURCES/Yeast_genome/S288C_R64-1-1_sacCer3_genome.fa --feat_bound ${UP_BOUND} ${DOWN_BOUND} --tf_bind RESOURCES/Yeast_CallingCards/*.bed --hist_mod RESOURCES/Yeast_HistoneMarks_Weiner2014/*.bed --chrom_acc RESOURCES/Yeast_ChromAcc_Schep2015/BY4741_ypd_osm_0min.occ.bed --gene_expr RESOURCES/Yeast_ZEV_IDEA/ZEV_0min_prepertData.csv 
+$ python3 -u CODE/cv_yeast_model.py \
+    -i YLR451W \
+    -x OUTPUT/h5_data/yeast_s288c_data.h5 \
+    -y RESOURCES/Yeast_ZEV_IDEA/ZEV_0min_prepertData.csv \
+    -f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
+    -o OUTPUT/Yeast_CallingCards_ZEV/
 ```
 
-### 3. Train and test the model for each TF using corss-validation.
+### 3. Visualize feature contributions in Jupyter notebooks.
 
 ```
-python3 -u CODE/cv_yeast_model.py -m cv_model -i $TF -a $ALGORITHM \
-	-x $FEAT_FILE -y $LABEL_FILE --feat_bins ${BINS} --feat_bound ${UP_BOUND} ${DOWN_BOUND} \
-	-f tf_binding histone_modifications chromatin_accessibility gene_expression gene_variation dna_sequence_nt_freq \
-	-o $OUTPUT_DIR/
-```
-
-### 4. Explain the determinants of TF-perturbation responsiveness
-```
-python3 -u CODE/interpret_model.py -a $ALGORITHM \
-	-m ${TF_MODEL_DIR}/cv*.pkl \
-	-x ${TF_MODEL_DIR}/feat_mtx.csv.gz \
-	-y ${TF_MODEL_DIR}/preds.csv.gz \
-	-g ${TF_MODEL_DIR}/genes.csv.gz \
-	-o ${TF_MODEL_DIR}
+$ jupyter lab
 ```
