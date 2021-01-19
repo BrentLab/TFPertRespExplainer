@@ -7,10 +7,7 @@ import h5py
 import scipy.sparse as sps
 import multiprocess as mp
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-import os.path
-import pickle
 from pybedtools import BedTool
-from tensorflow.keras.models import load_model as load_h5_model
 
 
 ## Intialize logger
@@ -560,7 +557,7 @@ def create_random_input(X, y, n_samples=1000):
 def compile_mp_results(mp_dicts):
     """Compile the array of dicts into one dict.
     """
-    result_dict = {d: [] for d in mp_dicts[0].keys()}
+    result_dict = {d: [] for d in ['preds', 'stats', 'models']}
     for k in sorted(mp_dicts.keys()):
         for d in result_dict.keys():
             result_dict[d].append(mp_dicts[k].get()[d])

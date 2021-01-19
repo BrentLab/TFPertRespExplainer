@@ -54,6 +54,7 @@ class TFPRExplainer:
 
             self.cv_results = compile_mp_results(mp_results)
 
+
     def explain(self):
         """Use SHAP values to features' contributions to predict the 
         responsiveness of a gene.
@@ -61,9 +62,14 @@ class TFPRExplainer:
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
 
-            for k, y_te in self.y.groupby('cv'):
-                te_idx = [i for i, g in enumerate(self.genes) if g in y_te['gene'].values]
-                te_genes = self.genes[te_idx]
+            # for k, y_te in self.y.groupby('cv'):
+            for k, y_te in enumerate(self.cv_results['preds']):
+                # te_idx = [i for i, g in enumerate(self.genes) if g in y_te['gene'].values]
+                # te_genes = self.genes[te_idx]
+                ##TODO
+                te_genes = y_te['gene'].values
+                te_idx = [np.where(self.genes == g)[0][0] for g in te_genes]
+                
                 tr_idx = sorted(set(range(len(self.genes))) - set(te_idx))
                 logger.debug('Explainer for fold {} uses {} genes'.format(k, len(te_idx)))
 
@@ -92,7 +98,7 @@ class TFPRExplainer:
             index=False, compression='gzip')
 
         np.savetxt(
-            '{}/feats.csv.gz'.format(dirpath), np.array(self.features),
+            '{}/feats.csv.gz'.format(dirpath), np.array(self.feats),
             fmt='%s', delimiter=',')
 
         np.savetxt(
