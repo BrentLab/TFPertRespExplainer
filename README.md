@@ -32,12 +32,12 @@ $ python3 CODE/preprocess_data.py \
 ### 2. Explain genomic features that are predictive of which genes would respond to TF perturbation.
 
 ```
-$ python3 -u CODE/cv_yeast_model.py \
+$ python3 -u CODE/predict_yeast_resps.py \
     -i YLR451W \
-    -x OUTPUT/h5_data/yeast_s288c_data.h5 \
-    -y RESOURCES/Yeast_ZEV_IDEA/ZEV_0min_prepertData.csv \
+    -x OUTPUT/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \
+    -y RESOURCES/Yeast_ZEV_IDEA/ZEV_15min_shrunkenData.csv \
     -f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
-    -o OUTPUT/Yeast_CallingCards_ZEV/
+    -o OUTPUT/Yeast_CallingCards_ZEV/all_feats/xgb
 ```
 
 ### 3. Visualize feature contributions in Jupyter notebooks.
