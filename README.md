@@ -1,4 +1,4 @@
-# Perturbation Response Modeling
+# TF-Perturbation Response Explainer
 
 The ability to predict which genes will respond to perturbation of a TF's activity serves as a benchmark for our systems-level understanding of transcriptional regulatory networks. This repo uses machine learning models to predict each gene's responsiveness to a TF perturbation using genomic data from the unperturbed cells, and explains which genomic factors determine the model predictions.
 
