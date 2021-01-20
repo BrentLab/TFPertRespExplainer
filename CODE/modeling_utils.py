@@ -300,20 +300,25 @@ def create_model_label(filepath, tf, genes, is_long_csv=False, tf_col=None, gene
     Returns:
         Label dataframe
     """
+    #TOOD: Unify label csv as long format.
     if is_long_csv:
         df = pd.read_csv(filepath)
         if tf not in df[tf_col].unique():
-            logger.error('TF {} not found in label file.'.format(tf))
-            raise Exception('==> Aborted <==')
+            logger.error('TF {} not found in label file. ==> Aborted <=='.format(tf))
+            sys.exit(1)
 
-        label_df = df.loc[df[tf_col] == tf, [gene_col, 'log2FoldChange', 'padj']]
+        cols = [gene_col, 'log2FoldChange'] 
+        if 'padj' in df.columns:
+            cols.append('padj')
+        label_df = df.loc[df[tf_col] == tf, cols]
         label_df = label_df.set_index(gene_col)
+    
     else:
         df = pd.read_csv(filepath, index_col=0)
         if tf not in df.columns:
-            logger.error('TF {} not found in label file.'.format(tf))
-            raise Exception('==> Aborted <==')
-            
+            logger.error('TF {} not found in label file. ==> Aborted <=='.format(tf))
+            sys.exit(1)
+
         label_df = df[tf]
     label_df = map_label_gene_index(label_df, genes)
     return label_df

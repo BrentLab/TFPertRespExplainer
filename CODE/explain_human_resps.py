@@ -87,8 +87,8 @@ def main(argv):
         n_resp = sum(label_df)
         logger.info('Responsive targets = {} / {}'.format(n_resp, label_df.shape[0]))
         if n_resp < 10:
-            logger.error('The number of responsive targets < cross-validation folds.')
-            raise Exception('==> Aborted <==')
+            logger.error('The number of responsive targets < cross-validation folds. ==> Aborted <==')
+            sys.exit(1)
     
     logger.info('Label dim={}, feat mtx dim={}'.format(label_df.shape, feat_mtx.shape))
 
