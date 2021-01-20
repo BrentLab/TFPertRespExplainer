@@ -54,7 +54,6 @@ class TFPRExplainer:
 
             self.cv_results = compile_mp_results(mp_results)
 
-
     def explain(self):
         """Use SHAP values to features' contributions to predict the 
         responsiveness of a gene.
@@ -62,16 +61,12 @@ class TFPRExplainer:
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
 
-            # for k, y_te in self.y.groupby('cv'):
             for k, y_te in enumerate(self.cv_results['preds']):
-                # te_idx = [i for i, g in enumerate(self.genes) if g in y_te['gene'].values]
-                # te_genes = self.genes[te_idx]
-                ##TODO
                 te_genes = y_te['gene'].values
                 te_idx = [np.where(self.genes == g)[0][0] for g in te_genes]
                 
                 tr_idx = sorted(set(range(len(self.genes))) - set(te_idx))
-                logger.debug('Explainer for fold {} uses {} genes'.format(k, len(te_idx)))
+                logger.info('Explaining {} genes in fold {}'.format(len(te_idx), k))
 
                 X_tr, X_te = self.X[tr_idx], self.X[te_idx]
                 X_tr, X_te = standardize_feat_mtx(X_tr, X_te, 'zscore')
@@ -123,6 +118,8 @@ class TFPRExplainer:
 def train_and_predict(k, D_tr, D_te):
     """Train classifier and predict gene responses. 
     """
+    logger.info('Cross validating fold {}'.format(k))
+
     X_tr, y_tr = D_tr
     X_te, y_te = D_te
     n_te_samples, n_feats = X_te.shape
@@ -136,7 +133,8 @@ def train_and_predict(k, D_tr, D_te):
         columns=model.classes_)[1].values
     auprc = average_precision_score(y_te, y_pred)
     auroc = roc_auc_score(y_te, y_pred)
-    logger.debug('pr={:.3f}'.format(auprc))
+    
+    logger.info('Cross-validation AUPRC={:.3f} in fold {}'.format(auprc, k))
 
     return {
         'preds': pd.DataFrame({
@@ -172,9 +170,7 @@ def calculate_tree_shap(model, X, genes, X_bg):
     
     ## Calculate SHAP values
     explainer = shap.TreeExplainer(model, X_bg)
-    logger.debug('SHAP expected value = {}'.format(explainer.expected_value))
     shap_mtx = explainer.shap_values(X, approximate=False, check_additivity=False)
-    logger.debug('SHAP matrix shape = {}'.format(shap_mtx.shape))
     
     ## Convert wide to long format
     shap_df = pd.DataFrame(

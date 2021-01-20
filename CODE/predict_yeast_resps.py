@@ -55,7 +55,7 @@ def parse_args(argv):
 def main(argv):
     ## Parse arguments
     args = parse_args(argv)
-    logger.debug('Input arguments: {}'.format(args))
+    logger.info('Input arguments: {}'.format(args))
     filepath_dict = {
         'feat_h5': args.feature_h5,
         'resp_label': args.response_label,
@@ -77,7 +77,7 @@ def main(argv):
     logger.info('==> Constructing labels and feature matrix <==')
     feat_mtx, features, label_df = construct_fixed_input(filepath_dict, feat_info_dict)
     label_df = binarize_label(label_df, MIN_RESP_LFC)
-    logger.debug('Label dim={}, feat mtx dim={}'.format(label_df.shape, feat_mtx.shape))
+    logger.info('Label dim={}, feat mtx dim={}'.format(label_df.shape, feat_mtx.shape))
 
     ## Model prediction and explanation
     tfpr_explainer = TFPRExplainer(feat_mtx, features, label_df)
