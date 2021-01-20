@@ -6,8 +6,8 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 import multiprocess as mp
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, KFold
+from sklearn.metrics import average_precision_score, roc_auc_score, r2_score
 import xgboost as xgb
 import shap
 
@@ -35,13 +35,18 @@ class TFPRExplainer:
         self.genes = label_df.index.values
         self.k_folds = 10
 
-    def cross_validate(self):
-        """Cross valdiate a classifier using multiprocessing.
+    def cross_validate(self, is_regressor=False):
+        """Cross valdiate a classifier or regressor using multiprocessing.
         """
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
-            kfolds = StratifiedKFold(
-                n_splits=self.k_folds, shuffle=True, random_state=RAND_NUM)
+
+            if is_regressor:
+                kfolds = KFold(
+                    n_splits=self.k_folds, shuffle=True, random_state=RAND_NUM)
+            else:
+                kfolds = StratifiedKFold(
+                    n_splits=self.k_folds, shuffle=True, random_state=RAND_NUM)
 
             for k, (tr_idx, te_idx) in enumerate(kfolds.split(self.X, self.y)):
                 y_tr, y_te = self.y[tr_idx], self.y[te_idx]
@@ -50,7 +55,7 @@ class TFPRExplainer:
 
                 mp_results[k] = pool.apply_async(
                     train_and_predict,
-                    args=(k, (X_tr, y_tr), (X_te, y_te),))
+                    args=(k, (X_tr, y_tr), (X_te, y_te), is_regressor,))
 
             self.cv_results = compile_mp_results(mp_results)
 
@@ -115,7 +120,7 @@ class TFPRExplainer:
             index=False, compression='gzip')
 
 
-def train_and_predict(k, D_tr, D_te):
+def train_and_predict(k, D_tr, D_te, is_regressor):
     """Train classifier and predict gene responses. 
     """
     logger.info('Cross validating fold {}'.format(k))
@@ -124,28 +129,34 @@ def train_and_predict(k, D_tr, D_te):
     X_te, y_te = D_te
     n_te_samples, n_feats = X_te.shape
 
-    ## Train and test model
-    model = train_classifier(X_tr, y_tr)
+    if is_regressor:
+        ## Train regressor and test
+        model = train_regressor(X_tr, y_tr)
 
-    ## Evaluate model performance
-    y_pred = pd.DataFrame(
-        data=model.predict_proba(X_te), 
-        columns=model.classes_)[1].values
-    auprc = average_precision_score(y_te, y_pred)
-    auroc = roc_auc_score(y_te, y_pred)
-    
-    logger.info('Cross-validation AUPRC={:.3f} in fold {}'.format(auprc, k))
+        y_pred = model.predict(X_te)
+        r2 = r2_score(y_te, y_pred)
+        stats_df = pd.DataFrame({'cv': [k], 'r2': [r2]})
+
+        logger.info('Cross-validation R2={:.3f} in fold {}'.format(r2, k))
+
+    else:        
+        ## Train classifier and test
+        model = train_classifier(X_tr, y_tr)
+
+        y_pred = pd.DataFrame(
+            data=model.predict_proba(X_te), 
+            columns=model.classes_)[1].values
+        auprc = average_precision_score(y_te, y_pred)
+        auroc = roc_auc_score(y_te, y_pred)
+        stats_df = pd.DataFrame({'cv': [k], 'auroc': [auroc], 'auprc': [auprc]})
+        
+        logger.info('Cross-validation AUPRC={:.3f} in fold {}'.format(auprc, k))
 
     return {
         'preds': pd.DataFrame({
-            'gene': y_te.index.values,
-            'cv': [k] * n_te_samples, 
-            'label': y_te.values,
-            'pred': y_pred}),
-        'stats': pd.DataFrame({
-            'cv': [k],
-            'auroc': [auroc],
-            'auprc': [auprc]}),
+            'gene': y_te.index.values, 'cv': [k] * n_te_samples, 
+            'label': y_te.values, 'pred': y_pred}),
+        'stats': stats_df,
         'models': model}
 
 
@@ -155,6 +166,21 @@ def train_classifier(X, y):
     model = xgb.XGBClassifier(
         n_estimators=500,
         learning_rate=.01,
+        booster='gbtree',
+        n_jobs=-1,
+        random_state=RAND_NUM
+    )
+    model.fit(X, y)
+    return model
+
+
+def train_regressor(X, y):
+    """Train a XGBoost regressor.
+    """
+    model = xgb.XGBRegressor(
+        n_estimators=500,
+        learning_rate=.01,
+        objective='reg:squarederror',
         booster='gbtree',
         n_jobs=-1,
         random_state=RAND_NUM

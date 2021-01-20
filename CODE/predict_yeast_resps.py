@@ -46,6 +46,9 @@ def parse_args(argv):
         '-o', '--output_dir', required=True,
         help='Output directory path.')
     parser.add_argument(
+        '--is_regressor', action='store_true',
+        help='Classifier (default) or regressor.')
+    parser.add_argument(
         '--aux_tfs', nargs='*', default=None,
         help='Auxiliary TFs, whose binding data are included.')
     parsed = parser.parse_args(argv[1:])
@@ -66,6 +69,7 @@ def main(argv):
         'feat_bins': FEAT_BINS,
         'feat_length': FEAT_UPSTREAM_BOUND + FEAT_DOWNSTREAM_BOUND,
         'aux_tfs': args.aux_tfs}
+    is_regressor = args.is_regressor
     
     ## Make output directory 
     child_dir = feat_info_dict['tf']
@@ -76,13 +80,13 @@ def main(argv):
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
     feat_mtx, features, label_df = construct_fixed_input(filepath_dict, feat_info_dict)
-    label_df = binarize_label(label_df, MIN_RESP_LFC)
+    label_df = label_df.abs() if is_regressor else binarize_label(label_df, MIN_RESP_LFC)
     logger.info('Label dim={}, feat mtx dim={}'.format(label_df.shape, feat_mtx.shape))
 
     ## Model prediction and explanation
     tfpr_explainer = TFPRExplainer(feat_mtx, features, label_df)
     logger.info('==> Cross validating response prediction model <==')
-    tfpr_explainer.cross_validate()
+    tfpr_explainer.cross_validate(is_regressor)
 
     logger.info('==> Analyzing feature contributions <==')
     tfpr_explainer.explain()
