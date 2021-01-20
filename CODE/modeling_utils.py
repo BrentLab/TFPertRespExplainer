@@ -46,7 +46,7 @@ def construct_expanded_input(filepath_dict, feat_info_dict):
     ## Create feature matrix for each feautre in parallel
     mp_dict = create_feat_mtx_parallel(
         features, h5_filepath, gene_map,
-        is_simple_input=False,
+        is_fixed_input=False,
         promo_bound=feat_info_dict['promo_bound'],
         enhan_bound=feat_info_dict['enhan_bound'],
         promo_width=feat_info_dict['promo_width'],
@@ -113,7 +113,7 @@ def construct_fixed_input(filepath_dict, feat_info_dict):
     return feat_mtx.toarray(), feat_details, labels
 
 
-def create_feat_mtx_parallel(features, h5_filepath, gene_map, is_simple_input=True, **kwargs):
+def create_feat_mtx_parallel(features, h5_filepath, gene_map, is_fixed_input=True, **kwargs):
     """Create feature matrix for each feautre in parallel
     """
     mp_dict = mp.Manager().dict()
@@ -122,7 +122,7 @@ def create_feat_mtx_parallel(features, h5_filepath, gene_map, is_simple_input=Tr
     for feat_tuple in features:
         mp_job = mp.Process(
             target=create_feat_mtx_wrapper, 
-            args=(mp_dict, feat_tuple, h5_filepath, gene_map, is_simple_input),
+            args=(mp_dict, feat_tuple, h5_filepath, gene_map, is_fixed_input),
             kwargs=kwargs
         )
         mp_jobs.append(mp_job)
@@ -132,22 +132,24 @@ def create_feat_mtx_parallel(features, h5_filepath, gene_map, is_simple_input=Tr
     return mp_dict
 
 
-def create_feat_mtx_wrapper(D, k, h5_filepath, gene_map, is_simple_input, **kwargs):
+def create_feat_mtx_wrapper(D, k, h5_filepath, gene_map, is_fixed_input, **kwargs):
     """Wrapper for create_feat_mtx.
     """
-    if is_simple_input:
-        D[k] = create_simple_feat_mtx(h5_filepath, k, gene_map, **kwargs)
+    if is_fixed_input:
+        D[k] = create_fixed_feat_mtx(h5_filepath, k, gene_map, **kwargs)
     else:
-        D[k] = create_complex_feat_mtx(h5_filepath, k, gene_map, **kwargs)
+        D[k] = create_expanded_feat_mtx(h5_filepath, k, gene_map, **kwargs)
 
 
-def create_simple_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
-    """Create feature matrix for a feature defined by simple regulatory regions
+def create_fixed_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
+    """Create feature matrix for a feature defined by fixed regulatory regions
     (single promoters).
     """
     feat_type, feat_name = feat_tuple
     feat_length = kwargs.get('feat_length', None)
     feat_bins = kwargs.get('feat_bins', None)
+
+    logger.info('Calculating feature: {} > {}'.format(feat_type, feat_name))
 
     mtx = load_h5_mtx(filepath, feat_type, feat_name)
     if feat_type == 'gene_expression' or feat_type == 'dna_sequence_nt_freq':
@@ -170,8 +172,8 @@ def create_simple_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
     return mtx
 
 
-def create_complex_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
-    """Create feature matrix for a feature defined by complex regulatory regions
+def create_expanded_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
+    """Create feature matrix for a feature defined by expaned regulatory regions
     (promoters + enhancers).
     """
     feat_type, feat_name = feat_tuple
@@ -179,6 +181,8 @@ def create_complex_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
     pwidth = kwargs.get('promo_width', 0)
     ebound = kwargs.get('enhan_bound', None)
     ewidth = kwargs.get('enhan_min_width', None)
+
+    logger.info('Calculating feature: {} > {}'.format(feat_type, feat_name))
 
     mtx = load_h5_mtx(filepath, feat_type, feat_name)
     if feat_type == 'gene_expression' or feat_type == 'dna_sequence_nt_freq':
@@ -188,7 +192,7 @@ def create_complex_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
         feat_width = 1
     else:
         ## Create bin regions
-        bins = create_complex_bins(pbound, ebound, pwidth, ewidth)
+        bins = create_ext_bins(pbound, ebound, pwidth, ewidth)
         ## Build coordinate dependent feature
         mtx = map_feature_mtx_gene_index(mtx, gene_map)
         ## Map features into bins
@@ -198,7 +202,7 @@ def create_complex_feat_mtx(filepath, feat_tuple, gene_map, **kwargs):
     return mtx
 
 
-def create_complex_bins(pbound, ebound, pwidth, ewidth):
+def create_ext_bins(pbound, ebound, pwidth, ewidth):
     """Create bins for promoters and enhancers into concatenated intervals (bins).
     The first n bins are the intervals ranging from upstream to downstream promoter.
     The next m bins represent the upstream enhancers, followed by another m bins
