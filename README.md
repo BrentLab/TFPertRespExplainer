@@ -18,15 +18,33 @@ conda install numpy==1.19.2 pandas==1.1.3 scikit-learn==0.22.1 jupyterlab==2.2.6
 
 ### Explaining a gene's responsiveness to a TF perturbation
 
-`TFPRExplainer` predicts which gene would response to a TF perturbation and explains the extend to which each feature contributes to predicting the responsiveness. Use the following code to load feature matrix from hdf5 file, cross validate response predictions, and analyze contributions of relevant genomic features
+`TFPRExplainer` predicts which gene would response to a TF perturbation and explains the extend to which each feature contributes to the prediction of responsiveness. Use the following example code to load feature matrix, cross validate response predictions, and analyze contributions of relevant genomic features.
+
+It takes two forms of parameters:
+
+- *Command line arguments* define the perturbed TF, the collection of genomic features, and directory paths for input and output data. Use `--help` for details.
+- *Configuration parameters* define the boundary of each gene's regulatory DNA, and instructions on processing feature matrix and response label. Reference `config.ini` for default parameters.
+
+For yeast genome, run
 
 ```
 $ python3 CODE/explain_yeast_resps.py \
     -i YLR451W \
+    -f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
     -x OUTPUT/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \
     -y RESOURCES/Yeast_ZEV_IDEA/ZEV_15min_shrunkenData.csv \
+    -o OUTPUT/Yeast_CallingCards_ZEV/all_feats/
+```
+
+For human genome, run
+
+```
+$ python3 CODE/explain_human_resps.py \
+    -i ENSG00000001167 \
     -f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
-    -o OUTPUT/Yeast_CallingCards_ZEV/all_feats/xgb
+    -x OUTPUT/h5_data/human_encode_enhan_alltss_2kbto2kb_promo.h5 \
+    -y RESOURCES/HumanK562_TFPert/K562_pertResp_DESeq2_long.csv \
+    -o OUTPUT/Human_ChIPseq_TFpert//all_feats/
 ```
 
 ### Explaining a gene's frequency of response across perturbations
@@ -50,7 +68,7 @@ Use Jupyter notebooks in `Notebooks/` to make corresponding feautre visualizatio
 
 ### Features
 
-Use pre-compiled hdf5 files or compile on your own using the following code as an example.
+All feature data are store in one hdf5 file. Use the pre-compiled hdf5 file or compile on your own using the following code as an example for yeast data.
 
 ```
 $ python3 CODE/preprocess_data.py \
@@ -66,4 +84,13 @@ $ python3 CODE/preprocess_data.py \
 
 ### Response label
 
+Store the magnitude of genes' responses to perturbations in wide or long format.
+
 ## Output Data
+
+- `stats`: Overall performance of cross-validation.
+- `preds`: Predicted probability of being responsive for each gene.
+- `feat_shap_wbg`: A matrix of feature contributions (SHAP values) in dimension of gene x feature. Each entry explains the extend to which a feature contributes to predict a gene's responsiveness.
+- `feats`: Feature names and their corresponding ranges of column indices in `feat_shap_wbg`.
+- `genes`: Gene names corresponding to row indices in `feat_shap_wbg`.
+- `feat_mtx`: Feature matrix (gene x feature) constructed from input hdf5.
