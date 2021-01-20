@@ -1,0 +1,11 @@
+__pycache__
+
+RESOURCES/*
+OUTPUT/*
+
+!RESOURCES/.gitignore
+!OUTPUT/.gitignore
+
+.*DS_Store
+.ipynb_checkpoints/
+download.ipynb
