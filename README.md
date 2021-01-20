@@ -4,7 +4,7 @@ The ability to predict which genes will respond to perturbation of a TF's activi
 
 ## Installation
 
-Use `miniconda` to manage packages. If on SLURM cluster, use `module load miniconda3`; otherwise, install and configure your own conda manager. 
+Use `miniconda` to manage packages. If on HTCF cluster (SLURM), use `module load miniconda3`; otherwise, install and configure your own conda manager. 
 
 ```
 conda create -n tfpr_exp python=3.6.10
@@ -31,7 +31,7 @@ For yeast genome, run
 $ python3 CODE/explain_yeast_resps.py \
     -i YLR451W \
     -f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
-    -x OUTPUT/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \
+    -x RESOURCES/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \
     -y RESOURCES/Yeast_ZEV_IDEA/ZEV_15min_shrunkenData.csv \
     -o OUTPUT/Yeast_CallingCards_ZEV/all_feats/
 ```
@@ -42,7 +42,7 @@ For human genome, run
 $ python3 CODE/explain_human_resps.py \
     -i ENSG00000001167 \
     -f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
-    -x OUTPUT/h5_data/human_encode_enhan_alltss_2kbto2kb_promo.h5 \
+    -x RESOURCES/h5_data/human_encode_enhan_alltss_2kbto2kb_promo.h5 \
     -y RESOURCES/HumanK562_TFPert/K562_pertResp_DESeq2_long.csv \
     -o OUTPUT/Human_ChIPseq_TFpert//all_feats/
 ```
@@ -53,15 +53,15 @@ $ python3 CODE/explain_human_resps.py \
 $ python3 CODE/explain_yeast_resps.py \
     --is_regressor \
     -i freq \
-    -x OUTPUT/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \
-    -y RESOURCES/Yeast_ZEV_IDEA/ZEV_15min_shrunkenData_deFreq.csv \
     -f histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
+    -x RESOURCES/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \
+    -y RESOURCES/Yeast_ZEV_IDEA/ZEV_15min_shrunkenData_deFreq.csv \
     -o OUTPUT/Yeast_ZEV_DE_freq/tf_indep_feats/xgb/
 ```
 
 ### Visualizing feature contributions in Jupyter notebooks
 
-Use Jupyter notebooks in `Notebooks/` to make corresponding feautre visualization.
+Use Jupyter notebooks in `Notebooks/` to make feautre visualization.
 
 
 ## Input Data
