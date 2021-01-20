@@ -22,10 +22,17 @@ config.read('config.ini')
 RAND_NUM = int(config['DEFAULT']['rand_num'])
 np.random.seed(RAND_NUM)
 
-FEAT_BINS = int(config['YEAST']['feat_bins'])
-FEAT_UPSTREAM_BOUND = int(config['YEAST']['feat_upstream_bound'])
-FEAT_DOWNSTREAM_BOUND = int(config['YEAST']['feat_downstream_bound'])
-MIN_RESP_LFC = float(config['YEAST']['min_response_lfc'])
+PROMOTER_UPSTREAM_BOUND = int(config['HUMAN']['promoter_upstream_bound'])
+PROMOTER_DOWNSTREAM_BOUND = int(config['HUMAN']['promoter_downstream_bound'])
+ENHANCER_UPSTREAM_BOUND = int(config['HUMAN']['enhancer_upstream_bound'])
+ENHANCER_DOWNSTREAM_BOUND = int(config['HUMAN']['enhancer_downstream_bound'])
+
+PROMOTER_BIN_WIDTH = int(config['HUMAN']['promoter_bin_width'])
+ENHANCER_BIN_TYPE = str(config['HUMAN']['enhancer_bin_type'])
+ENHANCER_CLOSEST_BIN_WIDTH = int(config['HUMAN']['enhancer_closest_bin_width'])
+
+MIN_RESP_LFC = float(config['HUMAN']['min_response_lfc'])
+MAX_RESP_P = float(config['HUMAN']['max_response_p'])
 
 
 def parse_args(argv):
@@ -48,9 +55,6 @@ def parse_args(argv):
     parser.add_argument(
         '--is_regressor', action='store_true',
         help='Classifier (default) or regressor.')
-    parser.add_argument(
-        '--aux_tfs', nargs='*', default=None,
-        help='Auxiliary TFs, whose binding data are included.')
     parsed = parser.parse_args(argv[1:])
     return parsed
 
@@ -66,21 +70,25 @@ def main(argv):
     feat_info_dict = {
         'tf': args.tf,
         'feat_types': args.feature_types,
-        'feat_bins': FEAT_BINS,
-        'feat_length': FEAT_UPSTREAM_BOUND + FEAT_DOWNSTREAM_BOUND,
-        'aux_tfs': args.aux_tfs}
+        'promo_bound': (PROMOTER_UPSTREAM_BOUND, PROMOTER_DOWNSTREAM_BOUND),
+        'promo_width': PROMOTER_BIN_WIDTH,
+        'enhan_bound': (ENHANCER_UPSTREAM_BOUND, ENHANCER_DOWNSTREAM_BOUND),
+        'enhan_min_width': ENHANCER_CLOSEST_BIN_WIDTH if ENHANCER_BIN_TYPE == 'binned' else None}
     is_regressor = args.is_regressor
-    
-    ## Make output directory 
-    child_dir = feat_info_dict['tf']
-    tf_output_dir = '{}/{}'.format(filepath_dict['output_dir'], child_dir)
-    if not os.path.exists(tf_output_dir):
-        os.makedirs(tf_output_dir)
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
-    feat_mtx, features, label_df = construct_fixed_input(filepath_dict, feat_info_dict)
-    label_df = label_df.abs() if is_regressor else binarize_label(label_df, MIN_RESP_LFC)
+    feat_mtx, features, label_df = construct_expanded_input(filepath_dict, feat_info_dict)
+
+    if is_regressor:
+        label_df = label_df['log2FoldChange'].abs()
+    else:
+        label_df = binarize_label(label_df, MIN_RESP_LFC, MAX_RESP_P)
+        n_resp = sum(label_df)
+        logger.info('Responsive targets = {} / {}'.format(n_resp, label_df.shape[0]))
+        if n_resp < 10:
+            raise 'The number of responsive targets < cross-validation folds.\n==> Aborted <=='
+    
     logger.info('Label dim={}, feat mtx dim={}'.format(label_df.shape, feat_mtx.shape))
 
     ## Model prediction and explanation
@@ -92,6 +100,10 @@ def main(argv):
     tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
+    child_dir = feat_info_dict['tf']
+    tf_output_dir = '{}/{}'.format(filepath_dict['output_dir'], child_dir)
+    if not os.path.exists(tf_output_dir):
+        os.makedirs(tf_output_dir)
     tfpr_explainer.save(tf_output_dir)
     
     logger.info('==> Completed <==')
