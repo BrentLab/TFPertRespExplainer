@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 import multiprocess as mp
-from sklearn.model_selection import StratifiedKFold, KFold
+from sklearn.model_selection import KFold
 from sklearn.metrics import average_precision_score, roc_auc_score, r2_score
 import xgboost as xgb
 import shap
@@ -28,25 +28,24 @@ BG_GENE_NUM = 500
 
 
 class TFPRExplainer:
-    def __init__(self, feat_mtx, features, label_df):
-        self.X = feat_mtx
-        self.y = label_df
+    def __init__(self, tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict):
+        self.tfs = sorted(label_df_dict.keys())
+        self.genes = label_df_dict[self.tfs[0]].index.values
         self.feats = features
-        self.genes = label_df.index.values
-        self.k_folds = 10
+        self.k_folds = len(self.tfs)
+        
+        tf_X = np.vstack([tf_feat_mtx_dict[tf] for tf in self.tfs])
+        nontf_X = np.vstack([nontf_feat_mtx for i in range(len(self.tfs))])
+        self.X = np.hstack([tf_X, nontf_X])
+        self.y = np.hstack([label_df_dict[tf].values for tf in self.tfs])
 
-    def cross_validate(self, is_regressor=False):
+    def cross_validate(self):
         """Cross valdiate a classifier or regressor using multiprocessing.
         """
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
 
-            if is_regressor:
-                kfolds = KFold(
-                    n_splits=self.k_folds, shuffle=True, random_state=RAND_NUM)
-            else:
-                kfolds = StratifiedKFold(
-                    n_splits=self.k_folds, shuffle=True, random_state=RAND_NUM)
+            kfolds = KFold(n_splits=self.k_folds)
 
             for k, (tr_idx, te_idx) in enumerate(kfolds.split(self.X, self.y)):
                 y_tr, y_te = self.y[tr_idx], self.y[te_idx]
@@ -55,7 +54,7 @@ class TFPRExplainer:
 
                 mp_results[k] = pool.apply_async(
                     train_and_predict,
-                    args=(k, (X_tr, y_tr), (X_te, y_te), is_regressor,))
+                    args=(k, (X_tr, y_tr), (X_te, y_te), self.tfs[k], self.genes))
 
             self.cv_results = compile_mp_results(mp_results)
 
@@ -105,22 +104,23 @@ class TFPRExplainer:
             '{}/genes.csv.gz'.format(dirpath), self.genes,
             fmt='%s', delimiter=',')
     
-        np.savetxt(
-            '{}/feat_mtx.csv.gz'.format(dirpath), self.X,
-            fmt='%.8f', delimiter=',')
+        # np.savetxt(
+        #     '{}/feat_mtx.csv.gz'.format(dirpath), self.X,
+        #     fmt='%.8f', delimiter=',')
     
         # for k, model in enumerate(self.cv_results['models']):
         #     pickle.dump(model, open('{}/cv{}.pkl'.format(dirpath, k), 'wb'))
 
-        for k, df in enumerate(self.shap_vals):
-            df['cv'] = k
-            self.shap_vals[k] = df
-        pd.concat(self.shap_vals).to_csv(
-            '{}/feat_shap_wbg.csv.gz'.format(dirpath),
-            index=False, compression='gzip')
+        # TODO
+        # for k, df in enumerate(self.shap_vals):
+        #     df['cv'] = k
+        #     self.shap_vals[k] = df
+        # pd.concat(self.shap_vals).to_csv(
+        #     '{}/feat_shap_wbg.csv.gz'.format(dirpath),
+        #     index=False, compression='gzip')
 
 
-def train_and_predict(k, D_tr, D_te, is_regressor):
+def train_and_predict(k, D_tr, D_te, tf_te, genes):
     """Train classifier and predict gene responses. 
     """
     logger.info('Cross validating fold {}'.format(k))
@@ -128,34 +128,23 @@ def train_and_predict(k, D_tr, D_te, is_regressor):
     X_tr, y_tr = D_tr
     X_te, y_te = D_te
     n_te_samples, n_feats = X_te.shape
+       
+    ## Train classifier and test
+    model = train_classifier(X_tr, y_tr)
 
-    if is_regressor:
-        ## Train regressor and test
-        model = train_regressor(X_tr, y_tr)
-
-        y_pred = model.predict(X_te)
-        r2 = r2_score(y_te, y_pred)
-        stats_df = pd.DataFrame({'cv': [k], 'r2': [r2]})
-
-        logger.info('Cross-validation R2={:.3f} in fold {}'.format(r2, k))
-
-    else:        
-        ## Train classifier and test
-        model = train_classifier(X_tr, y_tr)
-
-        y_pred = pd.DataFrame(
-            data=model.predict_proba(X_te), 
-            columns=model.classes_)[1].values
-        auprc = average_precision_score(y_te, y_pred)
-        auroc = roc_auc_score(y_te, y_pred)
-        stats_df = pd.DataFrame({'cv': [k], 'auroc': [auroc], 'auprc': [auprc]})
-        
-        logger.info('Cross-validation AUPRC={:.3f} in fold {}'.format(auprc, k))
+    y_pred = pd.DataFrame(
+        data=model.predict_proba(X_te), 
+        columns=model.classes_)[1].values
+    auprc = average_precision_score(y_te, y_pred)
+    auroc = roc_auc_score(y_te, y_pred)
+    stats_df = pd.DataFrame({'cv': [k], 'auroc': [auroc], 'auprc': [auprc]})
+    
+    logger.info('Cross-validation AUPRC={:.3f} in fold {}'.format(auprc, k))
 
     return {
         'preds': pd.DataFrame({
-            'gene': y_te.index.values, 'cv': [k] * n_te_samples, 
-            'label': y_te.values, 'pred': y_pred}),
+            'gene': genes, 'tf': [tf_te] * n_te_samples, 
+            'label': y_te, 'pred': y_pred}),
         'stats': stats_df,
         'models': model}
 
@@ -167,6 +156,9 @@ def train_classifier(X, y):
         n_estimators=500,
         learning_rate=.01,
         booster='gbtree',
+        gamma=5,
+        colsample_bytree=.8,
+        subsample=.8,
         n_jobs=-1,
         random_state=RAND_NUM
     )

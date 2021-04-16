@@ -79,38 +79,64 @@ def construct_fixed_input(filepath_dict, feat_info_dict):
         and label dataframe
     """
     ## Get common genes between feature matrix and label matrix
-    tf = feat_info_dict['tf']
+    tfs = feat_info_dict['tfs']
     h5_filepath = filepath_dict['feat_h5']
     label_filepath = filepath_dict['resp_label']
     genes, gene_map, _ = create_gene_index_map(h5_filepath, label_filepath)
 
-    ## Create model label and feature matrix
-    labels = create_model_label(label_filepath, tf, genes)
-    features = get_h5_features(h5_filepath, feat_info_dict['feat_types'], tf)
+    ## Create model label in dict
+    labels_dict = {tf: create_model_label(label_filepath, tf, genes) for tf in tfs}
 
-    ## Add TF binding data for auxiliary TFs
-    if feat_info_dict['aux_tfs'] is not None:
-        for aux_tf in feat_info_dict['aux_tfs']:
-            features += get_h5_features(h5_filepath, ['tf_binding'], aux_tf)
+    ## Create feature name lists for tf related and tf unrelated feature types and names
+    tf_features, nontf_features = get_h5_features(
+        h5_filepath, feat_info_dict['feat_types'], tfs)
+    tf_feat_types = sorted(set([x[0] for x in tf_features]))
 
     ## Create feature matrix for each feautre in parallel
-    mp_dict = create_feat_mtx_parallel(
-        features, h5_filepath, gene_map, 
+    tf_mp_dict = create_feat_mtx_parallel(
+        tf_features, h5_filepath, gene_map, 
         feat_length=feat_info_dict['feat_length'], 
         feat_bins=feat_info_dict['feat_bins'])
 
-    ## Concatenate feature matrices in order 
-    feat_mtx = sps.csc_matrix((len(gene_map), 0))
-    feat_details = []
-    col_idx = 0
+    nontf_mp_dict = create_feat_mtx_parallel(
+        nontf_features, h5_filepath, gene_map, 
+        feat_length=feat_info_dict['feat_length'], 
+        feat_bins=feat_info_dict['feat_bins'])
 
-    for feat_tuple in features:
-        mtx = mp_dict[feat_tuple]
+    ## Concatenate feature matrices in order for tf related features
+    col_idx = 0
+    tf_feat_mtx_dict = {}
+    feat_details = []
+
+    for i, tf in enumerate(tfs):
+        tf_feat_mtx = sps.csc_matrix((len(gene_map), 0))
+
+        for feat_type in tf_feat_types:
+            mtx = tf_mp_dict[(feat_type, tf)]
+            mtx_bins = mtx.shape[1]
+            tf_feat_mtx = sps.hstack((tf_feat_mtx, mtx))
+
+            if i == 0:  ## Only increment for the first TF
+                feat_details.append((feat_type, 'TF') + (col_idx, col_idx + mtx_bins))
+                col_idx += mtx_bins
+
+        tf_feat_mtx_dict[tf] = tf_feat_mtx.toarray()
+
+    ## Concatenate feature matrices in order for tf unrelated features 
+    nontf_feat_mtx = sps.csc_matrix((len(gene_map), 0))
+    feat_details = []
+
+    for feat_tuple in nontf_features:
+        mtx = nontf_mp_dict[feat_tuple]
         mtx_bins = mtx.shape[1]
-        feat_mtx = sps.hstack((feat_mtx, mtx))
+        nontf_feat_mtx = sps.hstack((nontf_feat_mtx, mtx))
+
         feat_details.append(feat_tuple + (col_idx, col_idx + mtx_bins))
         col_idx += mtx_bins
-    return feat_mtx.toarray(), feat_details, labels
+
+    nontf_feat_mtx = nontf_feat_mtx.toarray()
+
+    return tf_feat_mtx_dict, nontf_feat_mtx, feat_details, labels_dict
 
 
 def create_feat_mtx_parallel(features, h5_filepath, gene_map, is_fixed_input=True, **kwargs):
@@ -324,7 +350,7 @@ def create_model_label(filepath, tf, genes, is_long_csv=False, tf_col=None, gene
     return label_df
 
 
-def get_h5_features(h5_filepath, feat_types, tf):
+def get_h5_features(h5_filepath, feat_types, tfs):
     """Get all features in the h5 file based on feature types.
     Args:
         h5_filepath     - h5 filepath
@@ -333,21 +359,24 @@ def get_h5_features(h5_filepath, feat_types, tf):
     Returns:
         List of tuple (feature type, feature name)
     """
-    features = []
+    tf_features = []
+    nontf_features = []
     for x in feat_types:
         if x in ['tf_binding', 'binding_potential']:
-            features.append((x, tf))
+            for tf in tfs:
+                tf_features.append((x, tf))
         elif x == 'gene_expression':
-            ys = list_h5_datasets(h5_filepath, x)
-            if tf in ys:
-                features.append((x, tf))
-            elif 'median_level' in ys:
-                features.append((x, 'median_level'))
+            for tf in tfs:
+                ys = list_h5_datasets(h5_filepath, x)
+                if tf in ys:
+                    tf_features.append((x, tf))
+                elif 'median_level' in ys:
+                    nontf_features.append((x, 'median_level'))
         elif x == 'gene_variation':
-            features.append(('gene_expression', 'variation'))
+            nontf_features.append(('gene_expression', 'variation'))
         else:
-            features += [(x, y) for y in list_h5_datasets(h5_filepath, x)]
-    return features
+            nontf_features += [(x, y) for y in list_h5_datasets(h5_filepath, x)]
+    return tf_features, nontf_features
 
 
 def load_h5_genes(filepath):
