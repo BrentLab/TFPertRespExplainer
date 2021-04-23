@@ -36,6 +36,7 @@ class TFPRExplainer:
         
         tf_X = np.vstack([tf_feat_mtx_dict[tf] for tf in self.tfs])
         nontf_X = np.vstack([nontf_feat_mtx for i in range(len(self.tfs))])
+        self.tg_pairs = [tf + ':' + gene for tf in self.tfs for gene in self.genes]
         self.X = np.hstack([tf_X, nontf_X])
         self.y = np.hstack([label_df_dict[tf].values for tf in self.tfs])
 
@@ -66,10 +67,11 @@ class TFPRExplainer:
             mp_results = {}
 
             for k, y_te in enumerate(self.cv_results['preds']):
-                te_genes = y_te['gene'].values
-                te_idx = [np.where(self.genes == g)[0][0] for g in te_genes]
+                y_te['tf:gene'] = y_te['tf'] + ':' + y_te['gene']
+                te_tg_pairs = y_te['tf:gene'].values
+                te_idx = [self.tg_pairs.index(tg_pair) for tg_pair in te_tg_pairs]
                 
-                tr_idx = sorted(set(range(len(self.genes))) - set(te_idx))
+                tr_idx = sorted(set(range(len(self.tg_pairs))) - set(te_idx))
                 logger.info('Explaining {} genes in fold {}'.format(len(te_idx), k))
 
                 X_tr, X_te = self.X[tr_idx], self.X[te_idx]
@@ -81,7 +83,7 @@ class TFPRExplainer:
                     calculate_tree_shap,
                     args=(
                         self.cv_results['models'][k], 
-                        X_te, te_genes, X_tr[bg_idx],))
+                        X_te, te_tg_pairs, X_tr[bg_idx],))
             
             self.shap_vals = [mp_results[k].get() for k in sorted(mp_results.keys())]
 
@@ -101,23 +103,20 @@ class TFPRExplainer:
             fmt='%s', delimiter=',')
 
         np.savetxt(
-            '{}/genes.csv.gz'.format(dirpath), self.genes,
+            '{}/tf_gene_pairs.csv.gz'.format(dirpath), np.array(self.tg_pairs),
             fmt='%s', delimiter=',')
     
-        # np.savetxt(
-        #     '{}/feat_mtx.csv.gz'.format(dirpath), self.X,
-        #     fmt='%.8f', delimiter=',')
-    
-        # for k, model in enumerate(self.cv_results['models']):
-        #     pickle.dump(model, open('{}/cv{}.pkl'.format(dirpath, k), 'wb'))
+        np.savetxt(
+            '{}/feat_mtx.csv.gz'.format(dirpath), self.X,
+            fmt='%.8f', delimiter=',')
 
         # TODO
-        # for k, df in enumerate(self.shap_vals):
-        #     df['cv'] = k
-        #     self.shap_vals[k] = df
-        # pd.concat(self.shap_vals).to_csv(
-        #     '{}/feat_shap_wbg.csv.gz'.format(dirpath),
-        #     index=False, compression='gzip')
+        for k, df in enumerate(self.shap_vals):
+            df['cv'] = k
+            self.shap_vals[k] = df
+        pd.concat(self.shap_vals).to_csv(
+            '{}/feat_shap_wbg.csv.gz'.format(dirpath),
+            index=False, compression='gzip')
 
 
 def train_and_predict(k, D_tr, D_te, tf_te, genes):

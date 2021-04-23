@@ -76,11 +76,13 @@ def main(argv):
         nontf_feat_mtx.shape))
 
     # TODO: delete data pickling
-    import pickle
-    with open('tmp/multi_TF.pkl', 'wb') as f: 
-        pickle.dump([tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict], f)
+    # import pickle
+    # if not os.path.exists(filepath_dict['output_dir']):
+    #     os.makedirs(filepath_dict['output_dir'])
+    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'wb') as f: 
+    #     pickle.dump([tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict], f)
 
-    # with open('tmp/multi_TF.pkl', 'rb') as f: 
+    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'rb') as f: 
     #     tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = pickle.load(f)
 
     ## Model prediction and explanation
@@ -88,15 +90,13 @@ def main(argv):
     logger.info('==> Cross validating response prediction model <==')
     tfpr_explainer.cross_validate()
 
-    # logger.info('==> Analyzing feature contributions <==')
-    # tfpr_explainer.explain()
+    logger.info('==> Analyzing feature contributions <==')
+    tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
-    child_dir = '{}tfs'.format(len(tfpr_explainer.tfs))
-    tf_output_dir = '{}/{}'.format(filepath_dict['output_dir'], child_dir)
-    if not os.path.exists(tf_output_dir):
-        os.makedirs(tf_output_dir)
-    tfpr_explainer.save(tf_output_dir)
+    if not os.path.exists(filepath_dict['output_dir']):
+        os.makedirs(filepath_dict['output_dir'])
+    tfpr_explainer.save(filepath_dict['output_dir'])
     
     logger.info('==> Completed <==')
 
