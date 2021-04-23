@@ -137,7 +137,7 @@ def train_and_predict(k, D_tr, D_te, tf_te, genes):
         columns=model.classes_)[1].values
     auprc = average_precision_score(y_te, y_pred)
     auroc = roc_auc_score(y_te, y_pred)
-    stats_df = pd.DataFrame({'cv': [k], 'auroc': [auroc], 'auprc': [auprc]})
+    stats_df = pd.DataFrame({'cv': [k], 'tf': tf_te, 'auroc': [auroc], 'auprc': [auprc]})
     
     logger.info('Cross-validation AUPRC={:.3f} in fold {}'.format(auprc, k))
 
