@@ -32,38 +32,72 @@ def construct_expanded_input(filepath_dict, feat_info_dict):
         and label dataframe
     """
     ## Get common genes between feature matrix and label matrix
-    tf = feat_info_dict['tf']
+    tfs = feat_info_dict['tfs']
     h5_filepath = filepath_dict['feat_h5']
     label_filepath = filepath_dict['resp_label']
     genes, gene_map, _ = create_gene_index_map(
         h5_filepath, label_filepath, True, 'gene_ensg')
 
     ## Create model label and feature matrix
-    labels = create_model_label(
-        label_filepath, tf, genes, True, 'tf_ensg', 'gene_ensg')
-    features = get_h5_features(h5_filepath, feat_info_dict['feat_types'], tf)
+    labels_dict = {tf: create_model_label(
+        label_filepath, tf, genes, True, 'tf_ensg', 'gene_ensg') for tf in tfs}
+
+    ## Create feature name lists for tf related and tf unrelated feature types and names
+    tf_features, nontf_features = get_h5_features(
+        h5_filepath, feat_info_dict['feat_types'], tfs)
+    tf_feat_types = sorted(set([x[0] for x in tf_features]))
 
     ## Create feature matrix for each feautre in parallel
-    mp_dict = create_feat_mtx_parallel(
-        features, h5_filepath, gene_map,
+    tf_mp_dict = create_feat_mtx_parallel(
+        tf_features, h5_filepath, gene_map,
         is_fixed_input=False,
         promo_bound=feat_info_dict['promo_bound'],
         enhan_bound=feat_info_dict['enhan_bound'],
         promo_width=feat_info_dict['promo_width'],
         enhan_min_width=feat_info_dict['enhan_min_width'])
 
-    ## Concatenate feature matrices in order 
-    feat_mtx = sps.csc_matrix((len(gene_map), 0))
-    feat_details = []
-    col_idx = 0
+    nontf_mp_dict = create_feat_mtx_parallel(
+        nontf_features, h5_filepath, gene_map,
+        is_fixed_input=False,
+        promo_bound=feat_info_dict['promo_bound'],
+        enhan_bound=feat_info_dict['enhan_bound'],
+        promo_width=feat_info_dict['promo_width'],
+        enhan_min_width=feat_info_dict['enhan_min_width'])
 
-    for feat_tuple in features:
-        mtx = mp_dict[feat_tuple]
+    ## Concatenate feature matrices in order
+    col_idx = 0
+    tf_feat_mtx_dict = {}
+    feat_details = []
+
+    for i, tf in enumerate(tfs):
+        tf_feat_mtx = sps.csc_matrix((len(gene_map), 0))
+
+        for feat_type in tf_feat_types:
+            mtx = tf_mp_dict[(feat_type, tf)]
+            mtx_bins = mtx.shape[1]
+            tf_feat_mtx = sps.hstack((tf_feat_mtx, mtx))
+
+            if i == 0:  ## Only increment for the first TF
+                feat_details.append((feat_type, 'TF') + (col_idx, col_idx + mtx_bins))
+                col_idx += mtx_bins
+
+        tf_feat_mtx_dict[tf] = tf_feat_mtx.toarray()
+
+    ## Concatenate feature matrices in order for tf unrelated features 
+    nontf_feat_mtx = sps.csc_matrix((len(gene_map), 0))
+    feat_details = []
+
+    for feat_tuple in nontf_features:
+        mtx = nontf_mp_dict[feat_tuple]
         mtx_bins = mtx.shape[1]
-        feat_mtx = sps.hstack((feat_mtx, mtx))
+        nontf_feat_mtx = sps.hstack((nontf_feat_mtx, mtx))
+
         feat_details.append(feat_tuple + (col_idx, col_idx + mtx_bins))
         col_idx += mtx_bins
-    return feat_mtx.toarray(), feat_details, labels
+    
+    nontf_feat_mtx = nontf_feat_mtx.toarray()
+
+    return tf_feat_mtx_dict, nontf_feat_mtx, feat_details, labels_dict
 
 
 def construct_fixed_input(filepath_dict, feat_info_dict):

@@ -152,7 +152,7 @@ def train_classifier(X, y):
     """Train a XGBoost classifier.
     """
     model = xgb.XGBClassifier(
-        n_estimators=500,
+        n_estimators=2500,
         learning_rate=.01,
         booster='gbtree',
         gamma=5,
@@ -169,7 +169,7 @@ def train_regressor(X, y):
     """Train a XGBoost regressor.
     """
     model = xgb.XGBRegressor(
-        n_estimators=500,
+        n_estimators=2500,
         learning_rate=.01,
         objective='reg:squarederror',
         booster='gbtree',
