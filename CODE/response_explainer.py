@@ -29,10 +29,12 @@ BG_GENE_NUM = 500
 
 class TFPRExplainer:
     def __init__(self, tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict):
-        self.tfs = sorted(label_df_dict.keys())
+        self.tfs = np.sort(list(label_df_dict.keys()))
         self.genes = label_df_dict[self.tfs[0]].index.values
         self.feats = features
-        self.k_folds = len(self.tfs)
+        self.n_tfs = len(self.tfs)
+        self.n_genes = len(self.genes)
+        self.k_folds = min(10, len(self.tfs))  # TODO: add to config
         
         tf_X = np.vstack([tf_feat_mtx_dict[tf] for tf in self.tfs])
         nontf_X = np.vstack([nontf_feat_mtx for i in range(len(self.tfs))])
@@ -45,17 +47,21 @@ class TFPRExplainer:
         """
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
-
+            tf_pseudo_X = np.empty((len(self.tfs), 0))
+            
             kfolds = KFold(n_splits=self.k_folds)
 
-            for k, (tr_idx, te_idx) in enumerate(kfolds.split(self.X, self.y)):
+            for k, (tf_tr_idx, tf_te_idx) in enumerate(kfolds.split(tf_pseudo_X)):
+                tr_idx = expand_tf2gene_index(tf_tr_idx, self.n_genes)
+                te_idx = expand_tf2gene_index(tf_te_idx, self.n_genes)
+                
                 y_tr, y_te = self.y[tr_idx], self.y[te_idx]
                 X_tr, X_te = self.X[tr_idx], self.X[te_idx]
                 X_tr, X_te = standardize_feat_mtx(X_tr, X_te, 'zscore')
 
                 mp_results[k] = pool.apply_async(
                     train_and_predict,
-                    args=(k, (X_tr, y_tr), (X_te, y_te), self.tfs[k], self.genes))
+                    args=(k, (X_tr, y_tr), (X_te, y_te), self.tfs[tf_te_idx], self.genes))
 
             self.cv_results = compile_mp_results(mp_results)
 
@@ -119,14 +125,13 @@ class TFPRExplainer:
             index=False, compression='gzip')
 
 
-def train_and_predict(k, D_tr, D_te, tf_te, genes):
+def train_and_predict(k, D_tr, D_te, tfs, genes):
     """Train classifier and predict gene responses. 
     """
     logger.info('Cross validating fold {}'.format(k))
 
     X_tr, y_tr = D_tr
     X_te, y_te = D_te
-    n_te_samples, n_feats = X_te.shape
        
     ## Train classifier and test
     model = train_classifier(X_tr, y_tr)
@@ -134,18 +139,27 @@ def train_and_predict(k, D_tr, D_te, tf_te, genes):
     y_pred = pd.DataFrame(
         data=model.predict_proba(X_te), 
         columns=model.classes_)[1].values
-    auprc = average_precision_score(y_te, y_pred)
-    auroc = roc_auc_score(y_te, y_pred)
-    stats_df = pd.DataFrame({'cv': [k], 'tf': tf_te, 'auroc': [auroc], 'auprc': [auprc]})
-    
-    logger.info('Cross-validation AUPRC={:.3f} in fold {}'.format(auprc, k))
 
-    return {
-        'preds': pd.DataFrame({
-            'gene': genes, 'tf': [tf_te] * n_te_samples, 
-            'label': y_te, 'pred': y_pred}),
-        'stats': stats_df,
-        'models': model}
+    ## Calculate AUC for each TF
+    stats_df = pd.DataFrame()
+    preds_df = pd.DataFrame()
+    n_genes = len(genes)
+
+    for i, tf in enumerate(tfs):
+        idx = list(range(i * n_genes, (i + 1) * n_genes))
+        auprc = average_precision_score(y_te[idx], y_pred[idx])
+        auroc = roc_auc_score(y_te[idx], y_pred[idx])
+
+        preds_df = preds_df.append(pd.DataFrame(
+            {'gene': genes, 'tf': [tf] * n_genes, 'label': y_te[idx], 'pred': y_pred[idx]}),
+            ignore_index=True)
+        stats_df = stats_df.append(pd.DataFrame(
+            {'cv': [k], 'tf': [tf], 'auroc': [auroc], 'auprc': [auprc]}),
+            ignore_index=True)
+    
+        logger.info('Cross-validation fold {}, TF {} > AUPRC={:.3f}'.format(k, tf, auprc))
+
+    return {'preds': preds_df, 'stats': stats_df, 'models': model}
 
 
 def train_classifier(X, y):
@@ -198,3 +212,10 @@ def calculate_tree_shap(model, X, genes, X_bg):
     shap_df = shap_df.reset_index()
     shap_df = pd.wide_to_long(shap_df, 'feat', 'gene', 'feat_idx').reset_index()
     return shap_df
+
+
+def expand_tf2gene_index(t, n):
+    g = []
+    for i in t:
+        g += list(range(i * n, (i + 1) * n))
+    return g

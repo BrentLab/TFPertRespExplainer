@@ -11,7 +11,7 @@ from response_explainer import TFPRExplainer
 
 warnings.filterwarnings("ignore")
 
-## Intialize logger
+## Initialize logger
 logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
