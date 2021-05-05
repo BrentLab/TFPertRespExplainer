@@ -24,6 +24,7 @@ RAND_NUM = int(config['DEFAULT']['rand_num'])
 np.random.seed(RAND_NUM)
 MAX_RECURSION = int(config['DEFAULT']['max_recursion'])
 sys.setrecursionlimit(MAX_RECURSION)
+MAX_CV_FOLDS = int(config['DEFAULT']['max_cv_folds'])
 BG_GENE_NUM = 500
 
 
@@ -34,7 +35,7 @@ class TFPRExplainer:
         self.feats = features
         self.n_tfs = len(self.tfs)
         self.n_genes = len(self.genes)
-        self.k_folds = min(10, len(self.tfs))  # TODO: add to config
+        self.k_folds = min(MAX_CV_FOLDS, len(self.tfs))
         
         tf_X = np.vstack([tf_feat_mtx_dict[tf] for tf in self.tfs])
         nontf_X = np.vstack([nontf_feat_mtx for i in range(len(self.tfs))])
@@ -49,7 +50,7 @@ class TFPRExplainer:
             mp_results = {}
             tf_pseudo_X = np.empty((len(self.tfs), 0))
             
-            kfolds = KFold(n_splits=self.k_folds)
+            kfolds = KFold(n_splits=self.k_folds, shuffle=True, random_state=RAND_NUM)
 
             for k, (tf_tr_idx, tf_te_idx) in enumerate(kfolds.split(tf_pseudo_X)):
                 tr_idx = expand_tf2gene_index(tf_tr_idx, self.n_genes)
