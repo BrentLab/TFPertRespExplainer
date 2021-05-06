@@ -579,7 +579,7 @@ def standardize_2d_feat_mtx(X_tr, X_te, method):
     elif method.lower() == 'minmax':
         scaler = MinMaxScaler()
     scaler.fit(X_tr)
-    return scaler.transform(X_tr), scaler.transform(X_te)
+    return scaler.transform(X_tr), scaler.transform(X_te) if X_te is not None else None
 
 
 def binarize_label(y, lfc_cutoff=None, p_cutoff=None):

@@ -25,7 +25,7 @@ np.random.seed(RAND_NUM)
 MAX_RECURSION = int(config['DEFAULT']['max_recursion'])
 sys.setrecursionlimit(MAX_RECURSION)
 MAX_CV_FOLDS = int(config['DEFAULT']['max_cv_folds'])
-BG_GENE_NUM = 500
+BG_GENE_NUM = 1000
 
 
 class TFPRExplainer:
@@ -37,10 +37,9 @@ class TFPRExplainer:
         self.n_genes = len(self.genes)
         self.k_folds = min(MAX_CV_FOLDS, len(self.tfs))
         
-        tf_X = np.vstack([tf_feat_mtx_dict[tf] for tf in self.tfs])
-        nontf_X = np.vstack([nontf_feat_mtx for i in range(len(self.tfs))])
         self.tg_pairs = [tf + ':' + gene for tf in self.tfs for gene in self.genes]
-        self.X = np.hstack([tf_X, nontf_X])
+        self.tf_X = np.vstack([tf_feat_mtx_dict[tf] for tf in self.tfs])
+        self.nontf_X = nontf_feat_mtx
         self.y = np.hstack([label_df_dict[tf].values for tf in self.tfs])
 
     def cross_validate(self):
@@ -57,12 +56,20 @@ class TFPRExplainer:
                 te_idx = expand_tf2gene_index(tf_te_idx, self.n_genes)
                 
                 y_tr, y_te = self.y[tr_idx], self.y[te_idx]
-                X_tr, X_te = self.X[tr_idx], self.X[te_idx]
-                X_tr, X_te = standardize_feat_mtx(X_tr, X_te, 'zscore')
+                tf_X_tr, tf_X_te = self.tf_X[tr_idx], self.tf_X[te_idx]
+
+                tf_X_tr, tf_X_te = standardize_feat_mtx(tf_X_tr, tf_X_te, 'zscore')
+                nontf_X, _ = standardize_feat_mtx(self.nontf_X, None, 'zscore')
 
                 mp_results[k] = pool.apply_async(
                     train_and_predict,
-                    args=(k, (X_tr, y_tr), (X_te, y_te), self.tfs[tf_te_idx], self.genes))
+                    args=(
+                        k, 
+                        (tf_X_tr, y_tr), 
+                        (tf_X_te, y_te),
+                        nontf_X, 
+                        (self.tfs[tf_tr_idx], self.tfs[tf_te_idx]), 
+                        self.genes))
 
             self.cv_results = compile_mp_results(mp_results)
 
@@ -74,6 +81,9 @@ class TFPRExplainer:
             mp_results = {}
 
             for k, y_te in enumerate(self.cv_results['preds']):
+                n_tfs_te = len(y_te['tf'].unique())
+                n_tfs_tr = self.n_tfs - n_tfs_te
+
                 y_te['tf:gene'] = y_te['tf'] + ':' + y_te['gene']
                 te_tg_pairs = y_te['tf:gene'].values
                 te_idx = [self.tg_pairs.index(tg_pair) for tg_pair in te_tg_pairs]
@@ -81,8 +91,13 @@ class TFPRExplainer:
                 tr_idx = sorted(set(range(len(self.tg_pairs))) - set(te_idx))
                 logger.info('Explaining {} genes in fold {}'.format(len(te_idx), k))
 
-                X_tr, X_te = self.X[tr_idx], self.X[te_idx]
-                X_tr, X_te = standardize_feat_mtx(X_tr, X_te, 'zscore')
+                tf_X_tr, tf_X_te = self.tf_X[tr_idx], self.tf_X[te_idx]
+
+                tf_X_tr, tf_X_te = standardize_feat_mtx(tf_X_tr, tf_X_te, 'zscore')
+                nontf_X, _ = standardize_feat_mtx(self.nontf_X, None, 'zscore')
+
+                X_tr = np.hstack([tf_X_tr, np.vstack([nontf_X for i in range(n_tfs_tr)])])
+                X_te = np.hstack([tf_X_te, np.vstack([nontf_X for i in range(n_tfs_te)])])
 
                 bg_idx = np.random.choice(
                     range(X_tr.shape[0]), BG_GENE_NUM, replace=False)
@@ -114,7 +129,10 @@ class TFPRExplainer:
             fmt='%s', delimiter=',')
     
         np.savetxt(
-            '{}/feat_mtx.csv.gz'.format(dirpath), self.X,
+            '{}/feat_mtx_tf.csv.gz'.format(dirpath), self.tf_X,
+            fmt='%.8f', delimiter=',')
+        np.savetxt(
+            '{}/feat_mtx_nontf.csv.gz'.format(dirpath), self.nontf_X,
             fmt='%.8f', delimiter=',')
 
         # TODO
@@ -126,14 +144,18 @@ class TFPRExplainer:
             index=False, compression='gzip')
 
 
-def train_and_predict(k, D_tr, D_te, tfs, genes):
+def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes):
     """Train classifier and predict gene responses. 
     """
     logger.info('Cross validating fold {}'.format(k))
 
-    X_tr, y_tr = D_tr
-    X_te, y_te = D_te
-       
+    tf_X_tr, y_tr = D_tr
+    tf_X_te, y_te = D_te
+    tfs_tr, tfs_te = tfs
+
+    X_tr = np.hstack([tf_X_tr, np.vstack([nontf_X for i in range(len(tfs_tr))])])
+    X_te = np.hstack([tf_X_te, np.vstack([nontf_X for i in range(len(tfs_te))])])
+
     ## Train classifier and test
     model = train_classifier(X_tr, y_tr)
 
@@ -146,7 +168,7 @@ def train_and_predict(k, D_tr, D_te, tfs, genes):
     preds_df = pd.DataFrame()
     n_genes = len(genes)
 
-    for i, tf in enumerate(tfs):
+    for i, tf in enumerate(tfs_te):
         idx = list(range(i * n_genes, (i + 1) * n_genes))
         auprc = average_precision_score(y_te[idx], y_pred[idx])
         auroc = roc_auc_score(y_te[idx], y_pred[idx])
@@ -158,7 +180,7 @@ def train_and_predict(k, D_tr, D_te, tfs, genes):
             {'cv': [k], 'tf': [tf], 'auroc': [auroc], 'auprc': [auprc]}),
             ignore_index=True)
     
-        logger.info('Cross-validation fold {}, TF {} > AUPRC={:.3f}'.format(k, tf, auprc))
+        logger.info('CV performance for TF {} in fold {}: AUPRC={:.3f}'.format(tf, k, auprc))
 
     return {'preds': preds_df, 'stats': stats_df, 'models': model}
 
