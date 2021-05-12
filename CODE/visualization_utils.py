@@ -70,10 +70,10 @@ def compare_model_stats(df, metric, comp_groups):
     return stats_df
 
 
-def get_feature_indices(df, tf_name, organism):
+def get_feature_indices(df, organism):
     if organism == 'yeast':
         feat_dict = {
-            'tf_binding:{}'.format(tf_name): 'TF binding', 
+            'tf_binding:': 'TF binding', 
             'histone_modifications:h3k27ac_tp1_0_merged': 'H3K27ac',
             'histone_modifications:h3k36me3_tp1_0_merged': 'H3K36me3',
             'histone_modifications:h3k4me3_tp1_0_merged': 'H3K4me3',
@@ -81,12 +81,12 @@ def get_feature_indices(df, tf_name, organism):
             'histone_modifications:h3k79me_tp1_0_merged': 'H3K79me1',
             'histone_modifications:h4k16ac_tp1_0_merged': 'H4K16ac',
             'chromatin_accessibility:BY4741_ypd_osm_0min.occ': 'Chrom acc',
-            'gene_expression:{}'.format(tf_name): 'GEX level', 
+            'gene_expression:level': 'GEX level', 
             'gene_expression:variation': 'GEX var',
             'dna_sequence:nt_freq_agg': 'Dinucleotides'}
     elif organism == 'human':
         feat_dict = {
-            'tf_binding:{}'.format(tf_name): 'TF binding', 
+            'tf_binding:': 'TF binding', 
             'histone_modifications:K562_H3K27ac': 'H3K27ac',
             'histone_modifications:K562_H3K27me3': 'H3K27me3',
             'histone_modifications:K562_H3K36me3': 'H3K36me3',
@@ -110,30 +110,40 @@ def get_feature_indices(df, tf_name, organism):
     return idx_df
 
 
-def calculate_resp_and_unresp_signed_shap_sum(tf_dir, tf_name, organism):
-    shap_df = pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(tf_dir))
-    feats_df = pd.read_csv('{}/feats.csv.gz'.format(tf_dir), names=['feat_type', 'feat_name', 'start', 'end'])
-    preds_df = pd.read_csv('{}/preds.csv.gz'.format(tf_dir))
-    feat_idx_df = get_feature_indices(feats_df, tf_name, organism)
+def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism):
+    # TODO: update shap csv header
+    shap_df = pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir))
+    shap_df = shap_df.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
+    shap_df['tf'] = shap_df['tf:gene'].apply(lambda x: x.split(':')[0])
+    shap_df = shap_df[shap_df['tf'].isin(tfs)]
+
+    feats_df = pd.read_csv('{}/feats.csv.gz'.format(data_dir), names=['feat_type', 'feat_name', 'start', 'end'])
+    # TODO: temporary hack
+    feats_df = feats_df.append(pd.Series({'feat_type': 'gene_expression', 'feat_name': 'level', 'start': 0, 'end': 1}), ignore_index=True)
+    feats_df = feats_df.append(pd.Series({'feat_type': 'tf_binding', 'feat_name': '', 'start': 1, 'end': 16}), ignore_index=True)
+
+    preds_df = pd.read_csv('{}/preds.csv.gz'.format(data_dir))
+    preds_df = preds_df[preds_df['tf'].isin(tfs)]
+
+    feat_idx_df = get_feature_indices(feats_df, organism)
 
     ## Parse out shap+ and shap- values
-    shap_df = shap_df.rename(columns={'feat': 'shap'})
-    shap_df = shap_df.merge(preds_df[['gene', 'label']], how='left', on='gene')
+    shap_df = shap_df.merge(preds_df[['tf:gene', 'label', 'gene']], how='left', on='tf:gene')
     shap_df['shap+'] = [x if x > 0 else 0 for x in shap_df['shap']]
     shap_df['shap-'] = [x if x < 0 else 0 for x in shap_df['shap']]
 
-    ## Sum across reg region for each feature and each gene, and then take 
+    ## Sum across reg region for each feature and each tf:gene, and then take 
     ## the mean among responsive targets and repeat for non-responsive targets.
     shap_df = shap_df.merge(feat_idx_df[['feat_type_name', 'feat_idx']], on='feat_idx')
-    sum_shap = shap_df.groupby(['gene', 'label', 'feat_type_name'])[['shap+', 'shap-']].sum().reset_index()
-    sum_shap = sum_shap.groupby(['label', 'feat_type_name'])[['shap+', 'shap-']].mean().reset_index()
+    sum_shap = shap_df.groupby(['tf', 'gene', 'label', 'feat_type_name'])[['shap+', 'shap-']].sum().reset_index()
+    sum_shap = sum_shap.groupby(['tf', 'label', 'feat_type_name'])[['shap+', 'shap-']].mean().reset_index()
     sum_shap['label_name'] = ['Responsive' if x == 1 else 'Non-responsive' for x in sum_shap['label']]
     sum_shap['label_name'] = pd.Categorical(
         sum_shap['label_name'], ordered=True, categories=['Responsive', 'Non-responsive'])
 
-    sum_shap_pos = sum_shap[['label_name', 'feat_type_name', 'shap+']].copy().rename(columns={'shap+': 'shap'})
+    sum_shap_pos = sum_shap[['tf', 'label_name', 'feat_type_name', 'shap+']].copy().rename(columns={'shap+': 'shap'})
     sum_shap_pos['shap_dir'] = 'SHAP > 0'
-    sum_shap_neg = sum_shap[['label_name', 'feat_type_name', 'shap-']].copy().rename(columns={'shap-': 'shap'})
+    sum_shap_neg = sum_shap[['tf', 'label_name', 'feat_type_name', 'shap-']].copy().rename(columns={'shap-': 'shap'})
     sum_shap_neg['shap_dir'] = 'SHAP < 0'
     
     sum_signed_shap = pd.concat([sum_shap_pos, sum_shap_neg])
@@ -166,7 +176,7 @@ def calculate_shap_net_influence(df):
                     np.abs(subdf.loc[subdf['shap_dir'] == 'SHAP < 0', 'shap'].iloc[0])
         df2 = df2.append(pd.Series({
             'label_name': label_name, 'feat_type_name': feat_type_name,
-            'tf': tf, 'acc': subdf['acc'].iloc[0], 'shap_diff': shap_diff
+            'tf': tf, 'auprc': subdf['auprc'].iloc[0], 'shap_diff': shap_diff
             }), ignore_index=True)
     return df2
     
