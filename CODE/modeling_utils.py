@@ -407,7 +407,7 @@ def get_h5_features(h5_filepath, feat_types, tfs):
         elif x == 'gene_variation':
             nontf_features.add(('gene_expression', 'variation'))
         else:
-            nontf_features += [(x, y) for y in list_h5_datasets(h5_filepath, x)]
+            nontf_features |= {(x, y) for y in list_h5_datasets(h5_filepath, x)}
     return sorted(tf_features), sorted(nontf_features)
 
 
