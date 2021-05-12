@@ -85,7 +85,6 @@ def construct_expanded_input(filepath_dict, feat_info_dict):
 
     ## Concatenate feature matrices in order for tf unrelated features 
     nontf_feat_mtx = sps.csc_matrix((len(gene_map), 0))
-    feat_details = []
 
     for feat_tuple in nontf_features:
         mtx = nontf_mp_dict[feat_tuple]
@@ -158,7 +157,6 @@ def construct_fixed_input(filepath_dict, feat_info_dict):
 
     ## Concatenate feature matrices in order for tf unrelated features 
     nontf_feat_mtx = sps.csc_matrix((len(gene_map), 0))
-    feat_details = []
 
     for feat_tuple in nontf_features:
         mtx = nontf_mp_dict[feat_tuple]
@@ -393,24 +391,24 @@ def get_h5_features(h5_filepath, feat_types, tfs):
     Returns:
         List of tuple (feature type, feature name)
     """
-    tf_features = []
-    nontf_features = []
+    tf_features = set()
+    nontf_features = set()
     for x in feat_types:
         if x in ['tf_binding', 'binding_potential']:
             for tf in tfs:
-                tf_features.append((x, tf))
+                tf_features.add((x, tf))
         elif x == 'gene_expression':
             for tf in tfs:
                 ys = list_h5_datasets(h5_filepath, x)
                 if tf in ys:
-                    tf_features.append((x, tf))
+                    tf_features.add((x, tf))
                 elif 'median_level' in ys:
-                    nontf_features.append((x, 'median_level'))
+                    nontf_features.add((x, 'median_level'))
         elif x == 'gene_variation':
-            nontf_features.append(('gene_expression', 'variation'))
+            nontf_features.add(('gene_expression', 'variation'))
         else:
             nontf_features += [(x, y) for y in list_h5_datasets(h5_filepath, x)]
-    return tf_features, nontf_features
+    return sorted(tf_features), sorted(nontf_features)
 
 
 def load_h5_genes(filepath):
