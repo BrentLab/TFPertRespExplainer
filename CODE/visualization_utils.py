@@ -73,7 +73,7 @@ def compare_model_stats(df, metric, comp_groups):
 def get_feature_indices(df, organism):
     if organism == 'yeast':
         feat_dict = {
-            'tf_binding:': 'TF binding', 
+            'tf_binding:TF': 'TF binding', 
             'histone_modifications:h3k27ac_tp1_0_merged': 'H3K27ac',
             'histone_modifications:h3k36me3_tp1_0_merged': 'H3K36me3',
             'histone_modifications:h3k4me3_tp1_0_merged': 'H3K4me3',
@@ -81,12 +81,12 @@ def get_feature_indices(df, organism):
             'histone_modifications:h3k79me_tp1_0_merged': 'H3K79me1',
             'histone_modifications:h4k16ac_tp1_0_merged': 'H4K16ac',
             'chromatin_accessibility:BY4741_ypd_osm_0min.occ': 'Chrom acc',
-            'gene_expression:level': 'GEX level', 
+            'gene_expression:TF': 'GEX level', 
             'gene_expression:variation': 'GEX var',
             'dna_sequence:nt_freq_agg': 'Dinucleotides'}
     elif organism == 'human':
         feat_dict = {
-            'tf_binding:': 'TF binding', 
+            'tf_binding:TF': 'TF binding', 
             'histone_modifications:K562_H3K27ac': 'H3K27ac',
             'histone_modifications:K562_H3K27me3': 'H3K27me3',
             'histone_modifications:K562_H3K36me3': 'H3K36me3',
@@ -118,9 +118,6 @@ def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism):
     shap_df = shap_df[shap_df['tf'].isin(tfs)]
 
     feats_df = pd.read_csv('{}/feats.csv.gz'.format(data_dir), names=['feat_type', 'feat_name', 'start', 'end'])
-    # TODO: temporary hack
-    feats_df = feats_df.append(pd.Series({'feat_type': 'gene_expression', 'feat_name': 'level', 'start': 0, 'end': 1}), ignore_index=True)
-    feats_df = feats_df.append(pd.Series({'feat_type': 'tf_binding', 'feat_name': '', 'start': 1, 'end': 16}), ignore_index=True)
 
     preds_df = pd.read_csv('{}/preds.csv.gz'.format(data_dir))
     preds_df = preds_df[preds_df['tf'].isin(tfs)]
