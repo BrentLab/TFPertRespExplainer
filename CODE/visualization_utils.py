@@ -112,6 +112,7 @@ def get_feature_indices(df, organism):
 
 def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism):
     # TODO: update shap csv header
+    print('Loading feature data ...')
     shap_df = pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir))
     shap_df = shap_df.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
     shap_df['tf'] = shap_df['tf:gene'].apply(lambda x: x.split(':')[0])
@@ -123,14 +124,16 @@ def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism):
     preds_df = preds_df[preds_df['tf'].isin(tfs)]
 
     feat_idx_df = get_feature_indices(feats_df, organism)
-
+    
     ## Parse out shap+ and shap- values
+    print('Parsing signed shap values ...')
     shap_df = shap_df.merge(preds_df[['tf:gene', 'label', 'gene']], how='left', on='tf:gene')
-    shap_df['shap+'] = [x if x > 0 else 0 for x in shap_df['shap']]
-    shap_df['shap-'] = [x if x < 0 else 0 for x in shap_df['shap']]
+    shap_df['shap+'] = shap_df['shap'].apply(lambda x: x if x > 0 else 0)
+    shap_df['shap-'] = shap_df['shap'].apply(lambda x: x if x < 0 else 0)
 
     ## Sum across reg region for each feature and each tf:gene, and then take 
     ## the mean among responsive targets and repeat for non-responsive targets.
+    print('Summing shap ...')
     shap_df = shap_df.merge(feat_idx_df[['feat_type_name', 'feat_idx']], on='feat_idx')
     sum_shap = shap_df.groupby(['tf', 'gene', 'label', 'feat_type_name'])[['shap+', 'shap-']].sum().reset_index()
     sum_shap = sum_shap.groupby(['tf', 'label', 'feat_type_name'])[['shap+', 'shap-']].mean().reset_index()
