@@ -110,7 +110,7 @@ def get_feature_indices(df, organism):
     return idx_df
 
 
-def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism):
+def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism, sum_over_type='tf'):
     # TODO: update shap csv header
     shap_df = pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir))
     shap_df = shap_df.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
@@ -133,14 +133,14 @@ def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism):
     ## the mean among responsive targets and repeat for non-responsive targets.
     shap_df = shap_df.merge(feat_idx_df[['feat_type_name', 'feat_idx']], on='feat_idx')
     sum_shap = shap_df.groupby(['tf', 'gene', 'label', 'feat_type_name'])[['shap+', 'shap-']].sum().reset_index()
-    sum_shap = sum_shap.groupby(['tf', 'label', 'feat_type_name'])[['shap+', 'shap-']].mean().reset_index()
+    sum_shap = sum_shap.groupby([sum_over_type, 'label', 'feat_type_name'])[['shap+', 'shap-']].mean().reset_index()
     sum_shap['label_name'] = ['Responsive' if x == 1 else 'Non-responsive' for x in sum_shap['label']]
     sum_shap['label_name'] = pd.Categorical(
         sum_shap['label_name'], ordered=True, categories=['Responsive', 'Non-responsive'])
 
-    sum_shap_pos = sum_shap[['tf', 'label_name', 'feat_type_name', 'shap+']].copy().rename(columns={'shap+': 'shap'})
+    sum_shap_pos = sum_shap[[sum_over_type, 'label_name', 'feat_type_name', 'shap+']].copy().rename(columns={'shap+': 'shap'})
     sum_shap_pos['shap_dir'] = 'SHAP > 0'
-    sum_shap_neg = sum_shap[['tf', 'label_name', 'feat_type_name', 'shap-']].copy().rename(columns={'shap-': 'shap'})
+    sum_shap_neg = sum_shap[[sum_over_type, 'label_name', 'feat_type_name', 'shap-']].copy().rename(columns={'shap-': 'shap'})
     sum_shap_neg['shap_dir'] = 'SHAP < 0'
     
     sum_signed_shap = pd.concat([sum_shap_pos, sum_shap_neg])
@@ -166,14 +166,23 @@ def get_best_yeast_model(data_dirs, tf_name):
     return (tf_dir, is_cc, acc)
     
 
-def calculate_shap_net_influence(df):
+def calculate_shap_net_influence(df, sum_over_type='tf'):
     df2 = pd.DataFrame()
-    for (label_name, feat_type_name, tf), subdf in df.groupby(['label_name', 'feat_type_name', 'tf']):
-        shap_diff = subdf.loc[subdf['shap_dir'] == 'SHAP > 0', 'shap'].iloc[0] - \
-                    np.abs(subdf.loc[subdf['shap_dir'] == 'SHAP < 0', 'shap'].iloc[0])
-        df2 = df2.append(pd.Series({
-            'label_name': label_name, 'feat_type_name': feat_type_name,
-            'tf': tf, 'auprc': subdf['auprc'].iloc[0], 'shap_diff': shap_diff
-            }), ignore_index=True)
+    if sum_over_type == 'tf':
+        for (label_name, feat_type_name, tf), subdf in df.groupby(['label_name', 'feat_type_name', 'tf']):
+            shap_diff = subdf.loc[subdf['shap_dir'] == 'SHAP > 0', 'shap'].iloc[0] - \
+                        np.abs(subdf.loc[subdf['shap_dir'] == 'SHAP < 0', 'shap'].iloc[0])
+            df2 = df2.append(pd.Series({
+                'label_name': label_name, 'feat_type_name': feat_type_name,
+                'tf': tf, 'auprc': subdf['auprc'].iloc[0], 'shap_diff': shap_diff
+                }), ignore_index=True)
+    elif sum_over_type == 'gene':
+        for (label_name, feat_type_name, gene), subdf in df.groupby(['label_name', 'feat_type_name', 'gene']):
+            shap_diff = subdf.loc[subdf['shap_dir'] == 'SHAP > 0', 'shap'].iloc[0] - \
+                        np.abs(subdf.loc[subdf['shap_dir'] == 'SHAP < 0', 'shap'].iloc[0])
+            df2 = df2.append(pd.Series({
+                'label_name': label_name, 'feat_type_name': feat_type_name,
+                'gene': gene, 'shap_diff': shap_diff
+                }), ignore_index=True)
     return df2
     
