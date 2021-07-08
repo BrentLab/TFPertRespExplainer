@@ -136,7 +136,7 @@ def generate_features(h5, tss, regdna, feat_dict):
                     ## Load gene expression matrix and sort genes in the 
                     ## same dimension as other features
                     expr_df = pd.read_csv(v2, index_col=0)
-                    expr_df = expr_df.loc[genes]
+                    expr_df = expr_df.reindex(genes)
                     if k1 == 'gene_variation':
                         g.create_dataset(
                             'variation',

@@ -164,13 +164,10 @@ def get_onehot_dna_sequence_slim(regdna_bed, genome_fa, tss_df):
         seq_info = regdna_df.iloc[i]
         strand = seq_info['strand']
         start_pos = seq_info['start']
-        end_pos = seq_info['end']
+        end_pos = seq_info['end'] 
 
-        name = s.id.split(':')[0]
-        chrom = s.id.split(':')[2]
-        tmp = seq_info['name']
+        name = s.id.split(":")[0]
         tss_pos = tss_df.loc[tss_df['name'] == name, 'start'].iloc[0]
-        # tss_pos = tss_df.loc[tss_df['name'] == s.id, 'start'].iloc[0]
         
         if strand == '+':
             rel_dists = np.arange(start_pos, end_pos, dtype=int) - tss_pos
@@ -188,7 +185,6 @@ def get_onehot_dna_sequence_slim(regdna_bed, genome_fa, tss_df):
             print(s.id)
 
         gene_idx = genes.index(name)
-        # gene_idx = genes.index(s.id)
         tmp_df = pd.DataFrame({
             'gene_idx': [gene_idx] * len(rel_dists),
             'rel_dist': rel_dists,
@@ -215,7 +211,7 @@ def get_nt_frequency(regdna_bed, genome_fa, genes):
     regdna_bed = regdna_bed.getfasta(fi=genome_fa, name=True)
 
     for s in load_fasta(regdna_bed.seqfn):
-        gene_idx = genes.index(s.id)
+        gene_idx = genes.index(s.id.split(":")[0])
         seq_len = len(s.seq)
         seq = str(s.seq)
         
