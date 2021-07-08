@@ -128,8 +128,8 @@ def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism, sum_over_
     ## Parse out shap+ and shap- values
     print('Parsing signed shap values ...')
     shap_df = shap_df.merge(preds_df[['tf:gene', 'label', 'gene']], how='left', on='tf:gene')
-    shap_df['shap+'] = shap_df['shap'].apply(lambda x: x if x > 0 else 0)
-    shap_df['shap-'] = shap_df['shap'].apply(lambda x: x if x < 0 else 0)
+    shap_df['shap+'] = shap_df['shap'].clip(lower=0)
+    shap_df['shap-'] = shap_df['shap'].clip(upper=0)
 
     ## Sum across reg region for each feature and each tf:gene, and then take 
     ## the mean among responsive targets and repeat for non-responsive targets.
