@@ -110,18 +110,20 @@ def get_feature_indices(df, organism):
     return idx_df
 
 
-def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs, organism, sum_over_type='tf'):
+def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs=None, organism='yeast', sum_over_type='tf'):
     # TODO: update shap csv header
     print('Loading feature data ...')
     shap_df = pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir))
     shap_df = shap_df.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
     shap_df['tf'] = shap_df['tf:gene'].apply(lambda x: x.split(':')[0])
-    shap_df = shap_df[shap_df['tf'].isin(tfs)]
+    if tfs is not None:
+        shap_df = shap_df[shap_df['tf'].isin(tfs)]
 
     feats_df = pd.read_csv('{}/feats.csv.gz'.format(data_dir), names=['feat_type', 'feat_name', 'start', 'end'])
 
     preds_df = pd.read_csv('{}/preds.csv.gz'.format(data_dir))
-    preds_df = preds_df[preds_df['tf'].isin(tfs)]
+    if tfs is not None:
+        preds_df = preds_df[preds_df['tf'].isin(tfs)]
 
     feat_idx_df = get_feature_indices(feats_df, organism)
     
