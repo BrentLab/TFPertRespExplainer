@@ -84,7 +84,7 @@ def get_feature_indices(df, organism):
             'gene_expression:TF': 'GEX level', 
             'gene_expression:variation': 'GEX var',
             'dna_sequence:nt_freq_agg': 'Dinucleotides'}
-    elif organism == 'human':
+    elif organism == 'human_k562':
         feat_dict = {
             'tf_binding:TF': 'TF binding', 
             'histone_modifications:K562_H3K27ac': 'H3K27ac',
@@ -94,6 +94,19 @@ def get_feature_indices(df, organism):
             'histone_modifications:K562_H3K4me3': 'H3K4me3',
             'histone_modifications:K562_H3K9me3': 'H3K9me3',
             'chromatin_accessibility:K562_atac': 'Chrom acc',
+            'gene_expression:median_level': 'GEX level', 
+            'gene_expression:variation': 'GEX var',
+            'dna_sequence:nt_freq_agg': 'DNA sequence'}
+    elif organism == 'human_hek293':
+        feat_dict = {
+            'tf_binding:TF': 'TF binding', 
+            'histone_modifications:HEK293_H3K27ac': 'H3K27ac',
+            'histone_modifications:HEK293_H3K27me3': 'H3K27me3',
+            'histone_modifications:HEK293_H3K36me3': 'H3K36me3',
+            'histone_modifications:HEK293_H3K4me1': 'H3K4me1',
+            'histone_modifications:HEK293_H3K4me3': 'H3K4me3',
+            'histone_modifications:HEK293_H3K9me3': 'H3K9me3',
+            'chromatin_accessibility:HEK293T_dnase': 'Chrom acc',
             'gene_expression:median_level': 'GEX level', 
             'gene_expression:variation': 'GEX var',
             'dna_sequence:nt_freq_agg': 'DNA sequence'}
@@ -112,13 +125,19 @@ def get_feature_indices(df, organism):
 
 def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs=None, organism='yeast', sum_over_type='tf'):
     # TODO: update shap csv header
-    print('Loading feature data ...')
-    shap_df = pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir))
-    shap_df = shap_df.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
-    shap_df['tf'] = shap_df['tf:gene'].apply(lambda x: x.split(':')[0])
-    if tfs is not None:
-        shap_df = shap_df[shap_df['tf'].isin(tfs)]
-
+    print('Loading feature data ...', end=' ')
+    shap_subdf_list = []
+    for i, shap_subdf in enumerate(pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir), chunksize=10 ** 7, low_memory=False)):
+        print(i, end=' ')
+        shap_subdf = shap_subdf.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
+        shap_subdf['tf'] = shap_subdf['tf:gene'].apply(lambda x: x.split(':')[0])
+        if tfs is not None:
+            shap_subdf = shap_subdf[shap_subdf['tf'].isin(tfs)]
+        shap_subdf_list.append(shap_subdf)
+    print()
+    shap_df = pd.concat(shap_subdf_list)
+    del shap_subdf_list
+    
     feats_df = pd.read_csv('{}/feats.csv.gz'.format(data_dir), names=['feat_type', 'feat_name', 'start', 'end'])
 
     preds_df = pd.read_csv('{}/preds.csv.gz'.format(data_dir))
@@ -139,7 +158,7 @@ def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs=None, organism='yeas
     shap_df = shap_df.merge(feat_idx_df[['feat_type_name', 'feat_idx']], on='feat_idx')
     sum_shap = shap_df.groupby(['tf', 'gene', 'label', 'feat_type_name'])[['shap+', 'shap-']].sum().reset_index()
     sum_shap = sum_shap.groupby([sum_over_type, 'label', 'feat_type_name'])[['shap+', 'shap-']].mean().reset_index()
-    sum_shap['label_name'] = ['Responsive' if x == 1 else 'Non-responsive' for x in sum_shap['label']]
+    sum_shap['label_name'] = sum_shap['label'].apply(lambda x: 'Responsive' if x == 1 else 'Non-responsive')
     sum_shap['label_name'] = pd.Categorical(
         sum_shap['label_name'], ordered=True, categories=['Responsive', 'Non-responsive'])
 
