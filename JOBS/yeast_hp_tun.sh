@@ -12,7 +12,7 @@ python3 -u CODE/explain_yeast_resps.py \
     --model_tuning \
     -i YDR034C YEL009C YIL036W YJL056C YJR060W YKL038W YLR403W YLR451W YMR182C YNL199C YOL108C YOR344C YPL075W YPL248C \
     -f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression \
-    -x /scratch/mblab/yiming.kang/Pert_Response_Modeling/OUTPUT/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \ 
+    -x /scratch/mblab/yiming.kang/Pert_Response_Modeling/OUTPUT/h5_data/yeast_dna_cc_hm_atac_tss1000to500b_expr_var.h5 \
     -y /scratch/mblab/yiming.kang/Pert_Response_Modeling/RESOURCES/Yeast_ZEV_IDEA/ZEV_15min_shrunkenData_first1000genes.csv \
     -o OUTPUT/Yeast_cc_zev_hp_tun_first1000genes
 
