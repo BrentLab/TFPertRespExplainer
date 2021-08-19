@@ -25,7 +25,7 @@ sys.setrecursionlimit(MAX_RECURSION)
 
 MAX_CV_FOLDS = config.max_cv_folds
 BG_GENE_NUM = 1000
-MAX_TUNING_ITRS = 10
+MAX_TUNING_ITRS = 100
 
 
 class TFPRExplainer:
