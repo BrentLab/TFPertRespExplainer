@@ -1,38 +1,18 @@
 import sys
 import os.path
 import argparse
-import configparser
 import warnings
-import logging.config
 
+import config
+from logger import logger
 from modeling_utils import *
 from response_explainer import TFPRExplainer
 
 
 warnings.filterwarnings("ignore")
 
-## Initialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-
-## Load default configuration
-config = configparser.ConfigParser()
-config.read('config.ini')
-
-RAND_NUM = int(config['DEFAULT']['rand_num'])
+RAND_NUM = config.rand_num
 np.random.seed(RAND_NUM)
-
-PROMOTER_UPSTREAM_BOUND = int(config['HUMAN']['promoter_upstream_bound'])
-PROMOTER_DOWNSTREAM_BOUND = int(config['HUMAN']['promoter_downstream_bound'])
-ENHANCER_UPSTREAM_BOUND = int(config['HUMAN']['enhancer_upstream_bound'])
-ENHANCER_DOWNSTREAM_BOUND = int(config['HUMAN']['enhancer_downstream_bound'])
-
-PROMOTER_BIN_WIDTH = int(config['HUMAN']['promoter_bin_width'])
-ENHANCER_BIN_TYPE = str(config['HUMAN']['enhancer_bin_type'])
-ENHANCER_CLOSEST_BIN_WIDTH = int(config['HUMAN']['enhancer_closest_bin_width'])
-
-MIN_RESP_LFC = float(config['HUMAN']['min_response_lfc'])
-MAX_RESP_P = float(config['HUMAN']['max_response_p'])
 
 
 def parse_args(argv):
@@ -67,35 +47,32 @@ def main(argv):
     feat_info_dict = {
         'tfs': args.tfs,
         'feat_types': args.feature_types,
-        'promo_bound': (PROMOTER_UPSTREAM_BOUND, PROMOTER_DOWNSTREAM_BOUND),
-        'promo_width': PROMOTER_BIN_WIDTH,
-        'enhan_bound': (ENHANCER_UPSTREAM_BOUND, ENHANCER_DOWNSTREAM_BOUND),
-        'enhan_min_width': ENHANCER_CLOSEST_BIN_WIDTH if ENHANCER_BIN_TYPE == 'binned' else None}
+        'promo_bound': (config.human_promoter_upstream_bound, config.human_promoter_downstream_bound),
+        'promo_width': config.human_promoter_bin_width,
+        'enhan_bound': (config.human_enhancer_upstream_bound, config.human_enhancer_downstream_bound),
+        'enhan_min_width': config.human_enhancer_closest_bin_width if config.human_enhancer_bin_type == 'binned' else None}
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
 
     tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = \
         construct_expanded_input(filepath_dict, feat_info_dict)
-    label_df_dict = {tf: binarize_label(ldf, MIN_RESP_LFC, MAX_RESP_P) for tf, ldf in label_df_dict.items()}
+    label_df_dict = {tf: binarize_label(
+        ldf, config.human_min_response_lfc, config.human_max_response_p
+        ) for tf, ldf in label_df_dict.items()}
 
     logger.info('Per TF, label dim={}, TF-related feat dim={}, TF-unrelated feat dim={}'.format(
         label_df_dict[feat_info_dict['tfs'][0]].shape, 
         tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
         nontf_feat_mtx.shape))
 
-    # # TODO: delete data pickling
-    # import pickle
-    # if not os.path.exists(filepath_dict['output_dir']):
-    #     os.makedirs(filepath_dict['output_dir'])
-    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'wb') as f: 
-    #     pickle.dump([tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict], f)
-
-    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'rb') as f: 
-    #     tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = pickle.load(f)
-
     ## Model prediction and explanation
     tfpr_explainer = TFPRExplainer(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict)
+    
+    if args.model_tuning:
+        logger.info('==> Tuning model hyperparameters <==')
+        tfpr_explainer.tune_hyparams()
+
     logger.info('==> Cross validating response prediction model <==')
     tfpr_explainer.cross_validate()
 
