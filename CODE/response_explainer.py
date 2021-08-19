@@ -1,8 +1,5 @@
 import sys
-import configparser
-import logging.config
 from copy import deepcopy
-
 import numpy as np
 import pandas as pd
 import multiprocess as mp
@@ -10,22 +7,23 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import average_precision_score, roc_auc_score, r2_score
 import xgboost as xgb
 import shap
+from sklearn.model_selection import cross_val_predict
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
+import config
+from logger import logger
 from modeling_utils import *
 
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
 
-## Load default configuration
-config = configparser.ConfigParser()
-config.read('config.ini')
-RAND_NUM = int(config['DEFAULT']['rand_num'])
+RAND_NUM = config.rand_num
 np.random.seed(RAND_NUM)
-MAX_RECURSION = int(config['DEFAULT']['max_recursion'])
+
+MAX_RECURSION = config.max_recursion
 sys.setrecursionlimit(MAX_RECURSION)
-MAX_CV_FOLDS = int(config['DEFAULT']['max_cv_folds'])
+
+MAX_CV_FOLDS = config.max_cv_folds
 BG_GENE_NUM = 1000
+MAX_TUNING_ITRS = 2
 
 
 class TFPRExplainer:
@@ -33,18 +31,34 @@ class TFPRExplainer:
         self.tfs = np.sort(list(label_df_dict.keys()))
         self.genes = label_df_dict[self.tfs[0]].index.values
         self.feats = features
-        self.n_tfs = len(self.tfs)
         self.n_genes = len(self.genes)
-        self.k_folds = min(MAX_CV_FOLDS, len(self.tfs))
-        
-        self.tg_pairs = [tf + ':' + gene for tf in self.tfs for gene in self.genes]
-        self.tf_X = np.vstack([tf_feat_mtx_dict[tf] for tf in self.tfs])
+        self.tf_X_dict = tf_feat_mtx_dict
         self.nontf_X = nontf_feat_mtx
-        self.y = np.hstack([label_df_dict[tf].values for tf in self.tfs])
+        self.y_dict = label_df_dict
+        
+        self.model_hyparams = {
+            'n_estimators': 500,  #TODO: update to 2500 trees
+            'learning_rate': .01,
+            'gamma': 5,
+            'colsample_bytree': .8,
+            'subsample': .8,
+        }
+
+    def data_setup(self):
+        self.k_folds = min(MAX_CV_FOLDS, len(self.tfs))
+        self.tg_pairs = [tf + ':' + gene for tf in self.tfs for gene in self.genes]
+        self.tf_X = np.vstack([self.tf_X_dict[tf] for tf in self.tfs])
+        self.y = np.hstack([self.y_dict[tf].values for tf in self.tfs])
 
     def cross_validate(self):
         """Cross valdiate a classifier or regressor using multiprocessing.
         """
+        self.data_setup()
+
+        print(len(self.tfs), self.tfs)
+        print(self.tf_X.shape, self.nontf_X.shape, self.y.shape)
+        sys.exit()
+
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
             tf_pseudo_X = np.empty((len(self.tfs), 0))
@@ -69,9 +83,60 @@ class TFPRExplainer:
                         (tf_X_te, y_te),
                         nontf_X, 
                         (self.tfs[tf_tr_idx], self.tfs[tf_te_idx]), 
-                        self.genes))
+                        self.genes,
+                        self.model_hyparams))
 
             self.cv_results = compile_mp_results(mp_results)
+
+    def tune_hyparams(self):
+        """Tune hyperparameters of a classifier or regressor using a subset of 
+        """
+        def model_objective(params):
+            model = xgb.XGBClassifier(
+                n_estimators=self.model_hyparams['n_estimators'],
+                booster='gbtree',
+                scale_pos_weight=1,
+                n_jobs=-1,
+                **params)
+            y_pred = cross_val_predict(model, tuning_X, tuning_y, cv=5, n_jobs=-1)
+            loss = -average_precision_score(tuning_y, y_pred)  ## AuPRC as loss
+            return {'loss': loss, 'status': STATUS_OK}
+
+        ## Randomly split a fraction of tfs for tuning and rest for cv
+        n_tuning_tfs = int(np.ceil(len(self.tfs) * .1))
+        tuning_tf_idx = np.random.choice(range(len(self.tfs)), size=n_tuning_tfs, replace=False)
+        tuning_tfs = self.tfs[tuning_tf_idx]
+        logger.info('TFs for model tuning: {}'.format(tuning_tfs))
+
+        sys.exit()
+
+        tuning_X = np.hstack([
+            np.vstack([self.tf_X_dict[tf] for tf in tuning_tfs]),
+            np.vstack([self.nontf_X for i in range(len(tuning_tfs))])
+        ])
+        tuning_y = np.hstack([self.y_dict[tf].values for tf in tuning_tfs])
+
+        ## Define search space
+        hyparam_choice = {
+            # 'learning_rate': hp.loguniform('learning_rate', .001, .1),
+            'learning_rate': hp.uniform('learning_rate', .005, .02),
+            'gamma': hp.uniform('gamma', 0, 10),
+            'colsample_bytree': hp.uniform('colsample_bytree', .5, 1.),
+            'subsample': hp.uniform('subsample', .5, 1.)
+        }
+        search_space = hp.choice('model', [hyparam_choice])
+
+        ## Optimize hyparams
+        trials = Trials()
+        best_hps = fmin(
+            model_objective, search_space, 
+            algo=tpe.suggest, max_evals=MAX_TUNING_ITRS, trials=trials,
+            rstate=np.random.RandomState(RAND_NUM)
+        )
+        logger.info('Best model hyperparameters: {}'.format(best_hps))
+
+        self.model_hyparams.update(best_hps)
+        self.tfs = np.sort(np.setdiff1d(self.tfs, tuning_tfs))
 
     def explain(self):
         """Use SHAP values to features' contributions to predict the 
@@ -82,7 +147,7 @@ class TFPRExplainer:
 
             for k, y_te in enumerate(self.cv_results['preds']):
                 n_tfs_te = len(y_te['tf'].unique())
-                n_tfs_tr = self.n_tfs - n_tfs_te
+                n_tfs_tr = len(self.tfs) - n_tfs_te
 
                 y_te['tf:gene'] = y_te['tf'] + ':' + y_te['gene']
                 te_tg_pairs = y_te['tf:gene'].values
@@ -144,7 +209,7 @@ class TFPRExplainer:
             index=False, compression='gzip')
 
 
-def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes):
+def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes, model_hyparams):
     """Train classifier and predict gene responses. 
     """
     logger.info('Cross validating fold {}'.format(k))
@@ -157,7 +222,7 @@ def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes):
     X_te = np.hstack([tf_X_te, np.vstack([nontf_X for i in range(len(tfs_te))])])
 
     ## Train classifier and test
-    model = train_classifier(X_tr, y_tr)
+    model = train_classifier(X_tr, y_tr, model_hyparams)
 
     y_pred = pd.DataFrame(
         data=model.predict_proba(X_te), 
@@ -185,19 +250,44 @@ def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes):
     return {'preds': preds_df, 'stats': stats_df, 'models': model}
 
 
-def train_classifier(X, y):
+def train_classifier(X, y, model_hyparams):
     """Train a XGBoost classifier.
     """
+    # model = xgb.XGBClassifier(
+    #     n_estimators=2500,
+    #     learning_rate=.01,
+    #     booster='gbtree',
+    #     gamma=5,
+    #     colsample_bytree=.8,
+    #     subsample=.8,
+    #     n_jobs=-1,
+    #     random_state=RAND_NUM
+    # )
+    # model.fit(X, y)
+    # return model
+
+    # Tuning Notes:
+    # - Resonable class weight helps (not as high as neg/pos ratio)
+    # - Gamma helps as regularizer
+    # - Number of features per tree helps  
+    # - Subsample helps
+
+    # neg_pos_ratio = sum(y == 0) / sum(y == 1)
+    # neg_pos_ratio = 5
+    neg_pos_ratio = 1
+
     model = xgb.XGBClassifier(
-        n_estimators=2500,
-        learning_rate=.01,
+        n_estimators=model_hyparams['n_estimators'],
         booster='gbtree',
-        gamma=5,
-        colsample_bytree=.8,
-        subsample=.8,
+        scale_pos_weight=neg_pos_ratio,
         n_jobs=-1,
-        random_state=RAND_NUM
+        random_state=RAND_NUM,
+        learning_rate=model_hyparams['learning_rate'],
+        gamma=model_hyparams['gamma'],
+        colsample_bytree=model_hyparams['colsample_bytree'],
+        subsample=model_hyparams['subsample']
     )
+
     model.fit(X, y)
     return model
 
