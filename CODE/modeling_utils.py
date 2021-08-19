@@ -1,23 +1,16 @@
 import sys
 import numpy as np
 import pandas as pd
-import configparser
-import logging.config
 import h5py
 import scipy.sparse as sps
 import multiprocess as mp
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from pybedtools import BedTool
 
+import config
+from logger import logger
 
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-
-## Load default configuration
-config = configparser.ConfigParser()
-config.read('config.ini')
-RAND_NUM = int(config['DEFAULT']['rand_num'])
+RAND_NUM = config.rand_num
 
 
 def construct_expanded_input(filepath_dict, feat_info_dict):

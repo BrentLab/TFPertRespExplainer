@@ -7,13 +7,11 @@ import pandas as pd
 from pybedtools import BedTool
 from Bio import SeqIO
 import warnings
-import logging.config
+
+from logger import logger
+
 
 warnings.filterwarnings("ignore")
-
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
 
 
 def intersect_peak_regdna(peak_bed, regdna_bed, gene_df):

@@ -5,14 +5,10 @@ import h5py
 import numpy as np
 import pandas as pd
 from pybedtools import BedTool
-import logging.config
 
+from logger import logger
 from data_preproc_utils import create_regdna, intersect_peak_regdna, \
     calculate_matrix_position, get_onehot_dna_sequence_slim, get_nt_frequency
-
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
 
 
 def parse_args(argv):
