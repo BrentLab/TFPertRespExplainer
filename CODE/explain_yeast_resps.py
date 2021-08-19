@@ -1,5 +1,4 @@
 import sys
-import os.path
 import argparse
 import warnings
 
@@ -54,31 +53,34 @@ def main(argv):
         'feat_length': config.yeast_promoter_upstream_bound + config.yeast_promoter_downstream_bound}
 
     ## Construct input feature matrix and labels
-    # logger.info('==> Constructing labels and feature matrix <==')
+    logger.info('==> Constructing labels and feature matrix <==')
     
-    # tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = \
-    #     construct_fixed_input(filepath_dict, feat_info_dict)
-    # label_df_dict = {tf: binarize_label(ldf, config.yeast_min_response_lfc) for tf, ldf in label_df_dict.items()}
+    tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = \
+        construct_fixed_input(filepath_dict, feat_info_dict)
+    label_df_dict = {tf: binarize_label(
+        ldf, config.yeast_min_response_lfc
+    ) for tf, ldf in label_df_dict.items()}
     
-    # logger.info('Per TF, label dim={}, TF-related feat dim={}, TF-unrelated feat dim={}'.format(
-    #     label_df_dict[feat_info_dict['tfs'][0]].shape, 
-    #     tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
-    #     nontf_feat_mtx.shape))
+    logger.info('Per TF, label dim={}, TF-related feat dim={}, TF-unrelated feat dim={}'.format(
+        label_df_dict[feat_info_dict['tfs'][0]].shape, 
+        tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
+        nontf_feat_mtx.shape))
 
-    # TODO: delete data pickling
-    import pickle
+    # # TODO: delete data pickling
+    # import pickle
 
-    # if not os.path.exists(filepath_dict['output_dir']):
-    #     os.makedirs(filepath_dict['output_dir'])
     # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'wb') as f: 
     #     pickle.dump([tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict], f)
 
-    with open(filepath_dict['output_dir'] + '/input_data.pkl', 'rb') as f: 
-        tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = pickle.load(f)
-    # END OF TODO
+    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'rb') as f: 
+    #     tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = pickle.load(f)
+    # # END OF TODO
 
     ## Model prediction and explanation
-    tfpr_explainer = TFPRExplainer(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict)
+    tfpr_explainer = TFPRExplainer(
+        tf_feat_mtx_dict, nontf_feat_mtx, features, 
+        label_df_dict, filepath_dict['output_dir']
+    )
     
     if args.model_tuning:
         logger.info('==> Tuning model hyperparameters <==')
@@ -90,10 +92,8 @@ def main(argv):
     # logger.info('==> Analyzing feature contributions <==')
     # tfpr_explainer.explain()
     
-    # logger.info('==> Saving output data <==')
-    # if not os.path.exists(filepath_dict['output_dir']):
-    #     os.makedirs(filepath_dict['output_dir'])
-    # tfpr_explainer.save(filepath_dict['output_dir'])
+    logger.info('==> Saving output data <==')
+    tfpr_explainer.save()
     
     logger.info('==> Completed <==')
 

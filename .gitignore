@@ -2,7 +2,6 @@ __pycache__
 
 RESOURCES/*
 OUTPUT/*
-JOBS/*
 LOG/*
 
 !RESOURCES/.gitignore

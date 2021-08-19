@@ -1,4 +1,6 @@
 import sys
+import os.path
+import json
 from copy import deepcopy
 import numpy as np
 import pandas as pd
@@ -23,11 +25,11 @@ sys.setrecursionlimit(MAX_RECURSION)
 
 MAX_CV_FOLDS = config.max_cv_folds
 BG_GENE_NUM = 1000
-MAX_TUNING_ITRS = 2
+MAX_TUNING_ITRS = 10
 
 
 class TFPRExplainer:
-    def __init__(self, tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict):
+    def __init__(self, tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_dirpath):
         self.tfs = np.sort(list(label_df_dict.keys()))
         self.genes = label_df_dict[self.tfs[0]].index.values
         self.feats = features
@@ -44,6 +46,10 @@ class TFPRExplainer:
             'subsample': .8,
         }
 
+        self.output_dirpath = output_dirpath
+        if not os.path.exists(output_dirpath):
+            os.makedirs(output_dirpath)
+
     def data_setup(self):
         self.k_folds = min(MAX_CV_FOLDS, len(self.tfs))
         self.tg_pairs = [tf + ':' + gene for tf in self.tfs for gene in self.genes]
@@ -54,10 +60,6 @@ class TFPRExplainer:
         """Cross valdiate a classifier or regressor using multiprocessing.
         """
         self.data_setup()
-
-        print(len(self.tfs), self.tfs)
-        print(self.tf_X.shape, self.nontf_X.shape, self.y.shape)
-        sys.exit()
 
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
@@ -108,8 +110,6 @@ class TFPRExplainer:
         tuning_tfs = self.tfs[tuning_tf_idx]
         logger.info('TFs for model tuning: {}'.format(tuning_tfs))
 
-        sys.exit()
-
         tuning_X = np.hstack([
             np.vstack([self.tf_X_dict[tf] for tf in tuning_tfs]),
             np.vstack([self.nontf_X for i in range(len(tuning_tfs))])
@@ -133,6 +133,10 @@ class TFPRExplainer:
             algo=tpe.suggest, max_evals=MAX_TUNING_ITRS, trials=trials,
             rstate=np.random.RandomState(RAND_NUM)
         )
+
+        with open('{}/best_hyparams.json'.format(self.output_dirpath), 'w') as f:
+            json.dump(best_hps, f)
+
         logger.info('Best model hyperparameters: {}'.format(best_hps))
 
         self.model_hyparams.update(best_hps)
@@ -174,39 +178,40 @@ class TFPRExplainer:
             
             self.shap_vals = [mp_results[k].get() for k in sorted(mp_results.keys())]
 
-    def save(self, dirpath):
+    def save(self):
         """Save output data.
         """
         pd.concat(self.cv_results['preds']).to_csv(
-            '{}/preds.csv.gz'.format(dirpath), 
+            '{}/preds.csv.gz'.format(self.output_dirpath), 
             index=False, compression='gzip')
 
         pd.concat(self.cv_results['stats']).to_csv(
-            '{}/stats.csv.gz'.format(dirpath), 
+            '{}/stats.csv.gz'.format(self.output_dirpath), 
             index=False, compression='gzip')
 
         np.savetxt(
-            '{}/feats.csv.gz'.format(dirpath), np.array(self.feats),
+            '{}/feats.csv.gz'.format(self.output_dirpath), np.array(self.feats),
             fmt='%s', delimiter=',')
 
         np.savetxt(
-            '{}/tf_gene_pairs.csv.gz'.format(dirpath), np.array(self.tg_pairs),
+            '{}/tf_gene_pairs.csv.gz'.format(self.output_dirpath), np.array(self.tg_pairs),
             fmt='%s', delimiter=',')
     
         np.savetxt(
-            '{}/feat_mtx_tf.csv.gz'.format(dirpath), self.tf_X,
+            '{}/feat_mtx_tf.csv.gz'.format(self.output_dirpath), self.tf_X,
             fmt='%.8f', delimiter=',')
         np.savetxt(
-            '{}/feat_mtx_nontf.csv.gz'.format(dirpath), self.nontf_X,
+            '{}/feat_mtx_nontf.csv.gz'.format(self.output_dirpath), self.nontf_X,
             fmt='%.8f', delimiter=',')
 
         # TODO
-        for k, df in enumerate(self.shap_vals):
-            df['cv'] = k
-            self.shap_vals[k] = df
-        pd.concat(self.shap_vals).to_csv(
-            '{}/feat_shap_wbg.csv.gz'.format(dirpath),
-            index=False, compression='gzip')
+        if hasattr(self, 'shap_vals'):
+            for k, df in enumerate(self.shap_vals):
+                df['cv'] = k
+                self.shap_vals[k] = df
+            pd.concat(self.shap_vals).to_csv(
+                '{}/feat_shap_wbg.csv.gz'.format(self.output_dirpath),
+                index=False, compression='gzip')
 
 
 def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes, model_hyparams):

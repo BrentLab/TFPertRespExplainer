@@ -1,5 +1,4 @@
 import sys
-import os.path
 import argparse
 import warnings
 
@@ -59,7 +58,7 @@ def main(argv):
         construct_expanded_input(filepath_dict, feat_info_dict)
     label_df_dict = {tf: binarize_label(
         ldf, config.human_min_response_lfc, config.human_max_response_p
-        ) for tf, ldf in label_df_dict.items()}
+    ) for tf, ldf in label_df_dict.items()}
 
     logger.info('Per TF, label dim={}, TF-related feat dim={}, TF-unrelated feat dim={}'.format(
         label_df_dict[feat_info_dict['tfs'][0]].shape, 
@@ -67,7 +66,10 @@ def main(argv):
         nontf_feat_mtx.shape))
 
     ## Model prediction and explanation
-    tfpr_explainer = TFPRExplainer(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict)
+    tfpr_explainer = TFPRExplainer(
+        tf_feat_mtx_dict, nontf_feat_mtx, features, 
+        label_df_dict, filepath_dict['output_dir']
+    )
     
     if args.model_tuning:
         logger.info('==> Tuning model hyperparameters <==')
@@ -80,9 +82,7 @@ def main(argv):
     tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
-    if not os.path.exists(filepath_dict['output_dir']):
-        os.makedirs(filepath_dict['output_dir'])
-    tfpr_explainer.save(filepath_dict['output_dir'])
+    tfpr_explainer.save()
     
     logger.info('==> Completed <==')
 
