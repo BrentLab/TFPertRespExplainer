@@ -9,5 +9,5 @@ LOG/*
 
 .*DS_Store
 .ipynb_checkpoints/
+
 download.ipynb
-WORKING_NOTEBOOKS

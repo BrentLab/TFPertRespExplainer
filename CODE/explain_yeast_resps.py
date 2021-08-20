@@ -89,8 +89,8 @@ def main(argv):
     logger.info('==> Cross validating response prediction model <==')
     tfpr_explainer.cross_validate()
 
-    # logger.info('==> Analyzing feature contributions <==')
-    # tfpr_explainer.explain()
+    logger.info('==> Analyzing feature contributions <==')
+    tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
     tfpr_explainer.save()

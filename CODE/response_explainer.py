@@ -39,7 +39,7 @@ class TFPRExplainer:
         self.y_dict = label_df_dict
         
         self.model_hyparams = {
-            'n_estimators': 500,  #TODO: update to 2500 trees
+            'n_estimators': 2500,  #TODO: update to 2500 trees
             'learning_rate': .01,
             'gamma': 5,
             'colsample_bytree': .8,
