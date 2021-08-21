@@ -31,6 +31,9 @@ def parse_args(argv):
     parser.add_argument(
         '-o', '--output_dir', required=True,
         help='Output directory path.')
+    parser.add_argument(
+        '--model_tuning', action='store_true',
+        help='Enable model turning.')
     parsed = parser.parse_args(argv[1:])
     return parsed
 
