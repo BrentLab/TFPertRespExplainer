@@ -34,6 +34,8 @@ def parse_args(argv):
     parser.add_argument(
         '--model_tuning', action='store_true',
         help='Enable model turning.')
+    parser.add_argument(
+        '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
     return parsed
 
@@ -81,8 +83,10 @@ def main(argv):
     logger.info('==> Cross validating response prediction model <==')
     tfpr_explainer.cross_validate()
 
-    logger.info('==> Analyzing feature contributions <==')
-    tfpr_explainer.explain()
+    # TODO: to be removed in release
+    if not args.disable_shap:
+        logger.info('==> Analyzing feature contributions <==')
+        tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
     tfpr_explainer.save()
