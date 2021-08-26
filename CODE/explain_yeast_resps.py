@@ -34,6 +34,9 @@ def parse_args(argv):
     parser.add_argument(
         '--model_tuning', action='store_true',
         help='Enable model turning.')
+    parser.add_argument(
+        '--model_config', default='MODEL_CONFIG/yeast_default_config.json',
+        help='Json file for model hyperparameters.')
     parsed = parser.parse_args(argv[1:])
     return parsed
 
@@ -45,12 +48,15 @@ def main(argv):
     filepath_dict = {
         'feat_h5': args.feature_h5,
         'resp_label': args.response_label,
-        'output_dir': args.output_dir}
+        'output_dir': args.output_dir
+    }
     feat_info_dict = {
         'tfs': args.tfs,
         'feat_types': args.feature_types,
         'feat_bins': config.yeast_promoter_bins,
-        'feat_length': config.yeast_promoter_upstream_bound + config.yeast_promoter_downstream_bound}
+        'feat_length': config.yeast_promoter_upstream_bound + config.yeast_promoter_downstream_bound
+    }
+    model_hyparams = load_json(args.model_config)
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
@@ -79,7 +85,7 @@ def main(argv):
     ## Model prediction and explanation
     tfpr_explainer = TFPRExplainer(
         tf_feat_mtx_dict, nontf_feat_mtx, features, 
-        label_df_dict, filepath_dict['output_dir']
+        label_df_dict, filepath_dict['output_dir'], model_hyparams
     )
     
     if args.model_tuning:

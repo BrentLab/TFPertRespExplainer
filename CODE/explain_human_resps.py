@@ -35,6 +35,9 @@ def parse_args(argv):
         '--model_tuning', action='store_true',
         help='Enable model turning.')
     parser.add_argument(
+        '--model_config', default='MODEL_CONFIG/human_default_config.json',
+        help='Json file for model hyperparameters.')
+    parser.add_argument(
         '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
     return parsed
@@ -47,14 +50,17 @@ def main(argv):
     filepath_dict = {
         'feat_h5': args.feature_h5,
         'resp_label': args.response_label,
-        'output_dir': args.output_dir}
+        'output_dir': args.output_dir
+    }
     feat_info_dict = {
         'tfs': args.tfs,
         'feat_types': args.feature_types,
         'promo_bound': (config.human_promoter_upstream_bound, config.human_promoter_downstream_bound),
         'promo_width': config.human_promoter_bin_width,
         'enhan_bound': (config.human_enhancer_upstream_bound, config.human_enhancer_downstream_bound),
-        'enhan_min_width': config.human_enhancer_closest_bin_width if config.human_enhancer_bin_type == 'binned' else None}
+        'enhan_min_width': config.human_enhancer_closest_bin_width if config.human_enhancer_bin_type == 'binned' else None
+    }
+    model_hyparams = load_json(args.model_config)
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
@@ -73,7 +79,7 @@ def main(argv):
     ## Model prediction and explanation
     tfpr_explainer = TFPRExplainer(
         tf_feat_mtx_dict, nontf_feat_mtx, features, 
-        label_df_dict, filepath_dict['output_dir']
+        label_df_dict, filepath_dict['output_dir'], model_hyparams
     )
     
     if args.model_tuning:

@@ -29,7 +29,7 @@ MAX_TUNING_ITRS = 100
 
 
 class TFPRExplainer:
-    def __init__(self, tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_dirpath):
+    def __init__(self, tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_dirpath, model_hyparams):
         self.tfs = np.sort(list(label_df_dict.keys()))
         self.genes = label_df_dict[self.tfs[0]].index.values
         self.feats = features
@@ -37,14 +37,7 @@ class TFPRExplainer:
         self.tf_X_dict = tf_feat_mtx_dict
         self.nontf_X = nontf_feat_mtx
         self.y_dict = label_df_dict
-        
-        self.model_hyparams = {
-            'n_estimators': 2500,  #TODO: update to 2500 trees
-            'learning_rate': .01,
-            'gamma': 5,
-            'colsample_bytree': .8,
-            'subsample': .8,
-        }
+        self.model_hyparams = model_hyparams
 
         self.output_dirpath = output_dirpath
         if not os.path.exists(output_dirpath):

@@ -1,4 +1,5 @@
 import sys
+import json
 import numpy as np
 import pandas as pd
 import h5py
@@ -627,3 +628,8 @@ def compile_mp_results(mp_dicts):
         for d in result_dict.keys():
             result_dict[d].append(mp_dicts[k].get()[d])
     return result_dict
+
+
+def load_json(filepath):
+    with open(filepath, 'r') as f:
+        return json.load(f)
