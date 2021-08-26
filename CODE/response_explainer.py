@@ -234,12 +234,12 @@ def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes, model_hyparams):
     for i, tf in enumerate(tfs_te):
         idx = list(range(i * n_genes, (i + 1) * n_genes))
 
-        if len(np.unique(y_pred[idx])) <= 1:
-            auprc = np.nan
-            auroc = np.nan
-        else:
+        try:
             auprc = average_precision_score(y_te[idx], y_pred[idx])
             auroc = roc_auc_score(y_te[idx], y_pred[idx])
+        except ValueError:
+            auprc = np.nan
+            auroc = np.nan
 
         preds_df = preds_df.append(pd.DataFrame(
             {'gene': genes, 'tf': [tf] * n_genes, 'label': y_te[idx], 'pred': y_pred[idx]}),
