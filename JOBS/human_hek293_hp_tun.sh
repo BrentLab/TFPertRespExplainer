@@ -5,8 +5,8 @@
 #SBATCH --mem=200G
 #SBATCH -D .
 #SBATCH -J tfpr_human_hek293
-#SBATCH -o LOG/human_k562_hp_tun_%A.out
-#SBATCH -e LOG/human_k562_hp_tun_%A.err
+#SBATCH -o LOG/human_hek293_hp_tun_%A.out
+#SBATCH -e LOG/human_hek293_hp_tun_%A.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=yiming.kang@wustl.edu
 
