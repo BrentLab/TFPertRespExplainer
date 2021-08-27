@@ -58,7 +58,7 @@ def main(argv):
         'feat_bins': config.yeast_promoter_bins,
         'feat_length': config.yeast_promoter_upstream_bound + config.yeast_promoter_downstream_bound
     }
-    model_hyparams = load_json(args.model_config)
+    model_hyparams = load_model_config(args.model_config)
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')

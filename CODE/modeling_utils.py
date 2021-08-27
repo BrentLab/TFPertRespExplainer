@@ -630,6 +630,6 @@ def compile_mp_results(mp_dicts):
     return result_dict
 
 
-def load_json(filepath):
+def load_model_config(filepath):
     with open(filepath, 'r') as f:
         return json.load(f)

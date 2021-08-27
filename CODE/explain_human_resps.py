@@ -60,7 +60,7 @@ def main(argv):
         'enhan_bound': (config.human_enhancer_upstream_bound, config.human_enhancer_downstream_bound),
         'enhan_min_width': config.human_enhancer_closest_bin_width if config.human_enhancer_bin_type == 'binned' else None
     }
-    model_hyparams = load_json(args.model_config)
+    model_hyparams = load_model_config(args.model_config)
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
