@@ -256,58 +256,38 @@ def train_and_predict(k, D_tr, D_te, nontf_X, tfs, genes, model_hyparams):
 def train_classifier(X, y, model_hyparams):
     """Train a XGBoost classifier.
     """
-    # model = xgb.XGBClassifier(
-    #     n_estimators=2500,
-    #     learning_rate=.01,
-    #     booster='gbtree',
-    #     gamma=5,
-    #     colsample_bytree=.8,
-    #     subsample=.8,
-    #     n_jobs=-1,
-    #     random_state=RAND_NUM
-    # )
-    # model.fit(X, y)
-    # return model
-
-    # Tuning Notes:
-    # - Resonable class weight helps (not as high as neg/pos ratio)
-    # - Gamma helps as regularizer
-    # - Number of features per tree helps  
-    # - Subsample helps
-
-    # neg_pos_ratio = sum(y == 0) / sum(y == 1)
-    # neg_pos_ratio = 5
-    neg_pos_ratio = 1
-
     model = xgb.XGBClassifier(
         n_estimators=model_hyparams['n_estimators'],
         booster='gbtree',
-        scale_pos_weight=neg_pos_ratio,
         n_jobs=-1,
         random_state=RAND_NUM,
         learning_rate=model_hyparams['learning_rate'],
         gamma=model_hyparams['gamma'],
         colsample_bytree=model_hyparams['colsample_bytree'],
-        subsample=model_hyparams['subsample']
+        subsample=model_hyparams['subsample'],
+        max_depth=model_hyparams['max_depth'],
+        min_child_weight=model_hyparams['min_child_weight'],
+        eval_metric=model_hyparams['eval_metric']
     )
 
     model.fit(X, y)
     return model
 
 
-def train_regressor(X, y):
-    """Train a XGBoost regressor.
-    """
-    model = xgb.XGBRegressor(
-        n_estimators=2500,
-        learning_rate=.01,
-        objective='reg:squarederror',
-        booster='gbtree',
-        n_jobs=-1,
-        random_state=RAND_NUM
-    )
-    model.fit(X, y)
-    return model
+# TODO: clean up in release
+# def train_regressor(X, y):
+#     """Train a XGBoost regressor.
+#     """
+#     model = xgb.XGBRegressor(
+#         n_estimators=2500,
+#         learning_rate=.01,
+#         objective='reg:squarederror',
+#         booster='gbtree',
+#         n_jobs=-1,
+#         random_state=RAND_NUM
+#     )
+#     model.fit(X, y)
+#     return model
 
 
 def calculate_tree_shap(model, X, genes, X_bg):

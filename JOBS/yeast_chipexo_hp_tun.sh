@@ -19,6 +19,7 @@ python3 -u CODE/explain_yeast_resps.py \
 	-o OUTPUT/yeast_chipexo_hp_tun
 
 python3 -u CODE/explain_yeast_resps.py \
+	--disable_shape \
 	-i YAL051W YBL103C YBR239C YEL009C YGL162W YHR178W YJL089W YJR060W YKL038W YLR256W YLR451W YMR280C YOL067C YOL108C YOR344C YPL075W YPL133C \
 	-f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
 	-x /scratch/mblab/yiming.kang/Pert_Response_Modeling/OUTPUT/h5_data/yeast_dna_chipexo_hm_atac_tss1000to500b_expr_var.h5 \

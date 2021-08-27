@@ -36,7 +36,7 @@ def parse_args(argv):
         help='Enable model turning.')
     parser.add_argument(
         '--model_config', default='MODEL_CONFIG/human_default_config.json',
-        help='Json file for model hyperparameters.')
+        help='Json file for pretrained model hyperparameters.')
     parser.add_argument(
         '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
