@@ -10,7 +10,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score, r2_score
 import xgboost as xgb
 import shap
 from sklearn.model_selection import cross_val_predict
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, scope
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials, pyll
 
 import config
 from logger import logger
@@ -115,8 +115,8 @@ class TFPRExplainer:
             'gamma': hp.uniform('gamma', 0, 10),
             'colsample_bytree': hp.uniform('colsample_bytree', .5, 1.),
             'subsample': hp.uniform('subsample', .5, 1.),
-            'max_depth': scope.int(hp.quiniform('max_depth', 4, 8, q=1)),
-            'min_child_weight': hp.quiniform('min_child_weight', 1, 10, q=1)
+            'max_depth': pyll.scope.int(hp.quniform('max_depth', 4, 8, q=1)),
+            'min_child_weight': hp.quniform('min_child_weight', 1, 10, q=1)
         }
         search_space = hp.choice('model', [hyparam_choice])
 
