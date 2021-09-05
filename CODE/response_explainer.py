@@ -90,8 +90,6 @@ class TFPRExplainer:
             model = xgb.XGBClassifier(
                 n_estimators=self.model_hyparams['n_estimators'],
                 eval_metric=self.model_hyparams['eval_metric'],
-                max_depth=self.model_hyparams['max_depth'],
-                min_child_weight=self.model_hyparams['min_child_weight'],
                 booster='gbtree',
                 scale_pos_weight=1,
                 n_jobs=-1,

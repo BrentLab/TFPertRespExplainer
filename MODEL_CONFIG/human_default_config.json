@@ -4,7 +4,5 @@
     "gamma": 5,
     "colsample_bytree": 0.8,
     "subsample": 0.8,
-    "max_depth": 6,
-    "min_child_weight": 1,
     "eval_metric": "aucpr"
 }
