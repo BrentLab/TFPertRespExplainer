@@ -265,8 +265,6 @@ def train_classifier(X, y, model_hyparams):
         gamma=model_hyparams['gamma'],
         colsample_bytree=model_hyparams['colsample_bytree'],
         subsample=model_hyparams['subsample'],
-        max_depth=int(model_hyparams['max_depth']),
-        min_child_weight=model_hyparams['min_child_weight'],
         eval_metric=model_hyparams['eval_metric']
     )
 
