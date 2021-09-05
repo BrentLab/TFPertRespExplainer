@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem=40G
 #SBATCH -D .
 #SBATCH -J tfpr_chipexo_tun
 #SBATCH -o LOG/yeast_chipexo_hp_tun_%A.out

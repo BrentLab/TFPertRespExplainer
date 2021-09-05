@@ -90,6 +90,8 @@ class TFPRExplainer:
             model = xgb.XGBClassifier(
                 n_estimators=self.model_hyparams['n_estimators'],
                 eval_metric=self.model_hyparams['eval_metric'],
+                max_depth=self.model_hyparams['max_depth'],
+                min_child_weight=self.model_hyparams['min_child_weight'],
                 booster='gbtree',
                 scale_pos_weight=1,
                 n_jobs=-1,
@@ -116,8 +118,6 @@ class TFPRExplainer:
             'gamma': hp.uniform('gamma', 0, 10),
             'colsample_bytree': hp.uniform('colsample_bytree', .5, 1.),
             'subsample': hp.uniform('subsample', .5, 1.),
-            'max_depth': pyll.scope.int(hp.quniform('max_depth', 4, 8, q=1)),
-            'min_child_weight': hp.quniform('min_child_weight', 1, 10, q=1)
         }
         search_space = hp.choice('model', [hyparam_choice])
 

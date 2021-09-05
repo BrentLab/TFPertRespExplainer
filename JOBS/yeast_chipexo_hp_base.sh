@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem=40G
 #SBATCH -D .
 #SBATCH -J tfpr_chipexo_base
 #SBATCH -o LOG/yeast_chipexo_hp_base_%A.out
@@ -11,7 +11,7 @@
 #SBATCH --mail-user=yiming.kang@wustl.edu
 
 python3 -u CODE/explain_yeast_resps.py \
-	--disable_shape \
+	--disable_shap \
 	-i YAL051W YBL103C YBR239C YEL009C YGL162W YHR178W YJL089W YJR060W YKL038W YLR256W YLR451W YMR280C YOL067C YOL108C YOR344C YPL075W YPL133C \
 	-f tf_binding histone_modifications chromatin_accessibility dna_sequence_nt_freq gene_expression gene_variation \
 	-x /scratch/mblab/yiming.kang/Pert_Response_Modeling/OUTPUT/h5_data/yeast_dna_chipexo_hm_atac_tss1000to500b_expr_var.h5 \
