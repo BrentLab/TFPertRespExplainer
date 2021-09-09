@@ -110,6 +110,19 @@ def get_feature_indices(df, organism):
             'gene_expression:median_level': 'GEX level', 
             'gene_expression:variation': 'GEX var',
             'dna_sequence:nt_freq_agg': 'DNA sequence'}
+    elif organism == 'human_h1':
+        feat_dict = {
+            'tf_binding:TF': 'TF binding', 
+            'histone_modifications:H3K27ac': 'H3K27ac',
+            'histone_modifications:H3K27me3': 'H3K27me3',
+            'histone_modifications:H3K36me3': 'H3K36me3',
+            'histone_modifications:H3K4me1': 'H3K4me1',
+            'histone_modifications:H3K4me3': 'H3K4me3',
+            'histone_modifications:H3K9me3': 'H3K9me3',
+            'chromatin_accessibility:H1_ChromAcc_intersect': 'Chrom acc',
+            'gene_expression:median_level': 'GEX level', 
+            'gene_expression:variation': 'GEX var',
+            'dna_sequence:nt_freq_agg': 'DNA sequence'}
 
     idx_df = pd.DataFrame()
     for _, row in df.iterrows():
