@@ -89,7 +89,6 @@ class TFPRExplainer:
         def model_objective(params):
             model = xgb.XGBClassifier(
                 n_estimators=self.model_hyparams['n_estimators'],
-                eval_metric=self.model_hyparams['eval_metric'],
                 booster='gbtree',
                 scale_pos_weight=1,
                 n_jobs=-1,
@@ -264,8 +263,7 @@ def train_classifier(X, y, model_hyparams):
         learning_rate=model_hyparams['learning_rate'],
         gamma=model_hyparams['gamma'],
         colsample_bytree=model_hyparams['colsample_bytree'],
-        subsample=model_hyparams['subsample'],
-        eval_metric=model_hyparams['eval_metric']
+        subsample=model_hyparams['subsample']
     )
 
     model.fit(X, y)

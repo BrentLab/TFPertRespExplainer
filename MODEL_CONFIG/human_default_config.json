@@ -3,6 +3,5 @@
     "learning_rate": 0.01,
     "gamma": 5,
     "colsample_bytree": 0.8,
-    "subsample": 0.8,
-    "eval_metric": "aucpr"
+    "subsample": 0.8
 }
