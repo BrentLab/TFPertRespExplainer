@@ -71,6 +71,8 @@ def compare_model_stats(df, metric, comp_groups):
 
 
 def get_feature_indices(df, organism):
+    """Parse feature indices for visualization.
+    """
     if organism == 'yeast':
         feat_dict = {
             'tf_binding:TF': 'TF binding', 
@@ -137,6 +139,8 @@ def get_feature_indices(df, organism):
 
 
 def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs=None, organism='yeast', sum_over_type='tf'):
+    """Calculate the sum of SHAP values within responsive and unresponsive genes respectively.
+    """
     # TODO: update shap csv header
     print('Loading feature data ...', end=' ')
     shap_subdf_list = []
@@ -204,6 +208,8 @@ def get_best_yeast_model(data_dirs, tf_name):
     
 
 def calculate_shap_net_influence(df, sum_over_type='tf'):
+    """Calculate net influence of each feature type from SHAP values.
+    """
     df2 = pd.DataFrame()
     if sum_over_type == 'tf':
         for (label_name, feat_type_name, tf), subdf in df.groupby(['label_name', 'feat_type_name', 'tf']):
@@ -223,3 +229,53 @@ def calculate_shap_net_influence(df, sum_over_type='tf'):
                 }), ignore_index=True)
     return df2
     
+
+def parse_gene_shap_mtx(data_dir, tf, gene, width=15, use_abs=False, agg_dna=True):
+    """Parse SHAP matrix for a list of target genes.
+    """
+    shap_subdf_list = []
+    for i, shap_subdf in enumerate(pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir), chunksize=10 ** 7, low_memory=False)):
+        shap_subdf = shap_subdf.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
+        shap_subdf['tf'] = shap_subdf['tf:gene'].apply(lambda x: x.split(':')[0])
+        shap_subdf['gene'] = shap_subdf['tf:gene'].apply(lambda x: x.split(':')[1])
+        shap_subdf = shap_subdf[(shap_subdf['tf'] == tf) & (shap_subdf['gene'] == gene)]
+        shap_subdf_list.append(shap_subdf)
+        
+    target_df = pd.concat(shap_subdf_list)
+    
+    feats_df = pd.read_csv(data_dir + '/feats.csv.gz', names=['feat_type', 'feat_name', 'start', 'end'])
+
+    ## Add feature info
+    for _, row in feats_df.iterrows():
+        f_type, f_name, start, end = row
+        target_df.loc[(target_df['feat_idx'] >= start) & (target_df['feat_idx'] < end), 'feat_type'] = f_type
+        target_df.loc[(target_df['feat_idx'] >= start) & (target_df['feat_idx'] < end), 'feat_name'] = f_name
+    
+    ## Aggregate DNA sequence and drop nt freq rows
+    if agg_dna:
+        nt_freq_agg = target_df.loc[target_df['feat_type'] == 'dna_sequence_nt_freq', 'shap']
+        target_df = target_df.append(pd.Series({
+            'gene': gene,
+            'feat_idx': min(target_df.loc[target_df['feat_type'] == 'dna_sequence_nt_freq', 'feat_idx']),
+            'feat_type': 'dna_sequence',
+            'feat_name': 'nt_freq_agg',
+            'shap': sum(np.abs(nt_freq_agg)) if use_abs else sum(nt_freq_agg)
+            }),
+            ignore_index=True)
+        target_df = target_df[target_df['feat_type'] != 'dna_sequence_nt_freq']
+
+    ## Add feature position in visualization
+    start_idx = target_df.groupby(['feat_type', 'feat_name'])['feat_idx'].min().reset_index()
+    
+    for i, row in target_df.iterrows():
+        diff_idx = start_idx.loc[(start_idx['feat_type'] == row['feat_type']) & (start_idx['feat_name'] == row['feat_name']), 'feat_idx'].values[0]
+        target_df.loc[i, 'pos'] = row['feat_idx'] - diff_idx
+
+    target_df['feat_type_name'] = target_df['feat_type'] + ':' + target_df['feat_name']
+    if use_abs:
+        target_df['shap'] = np.abs(target_df['shap'])
+    return target_df
+
+    
+def resp_ratio(x):
+    return sum(x == 1) / len(x)
