@@ -3,7 +3,8 @@ __pycache__
 RESOURCES/*
 OUTPUT/*
 LOG/*
-JOBS/*
+JOBS/
+NOTEBOOKS/helper_data/*
 
 !RESOURCES/.gitignore
 !OUTPUT/.gitignore
