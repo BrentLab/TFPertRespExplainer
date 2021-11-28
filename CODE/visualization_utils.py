@@ -15,11 +15,67 @@ COLORS = {
     'dark_green': '#018a84',
     'light_blue': '#00abe5', 
     'dark_blue': '#01526e', 
-    'grey': '#a8a8a8'}
+    'grey': '#a8a8a8'
+}
 
 DINUCLEOTIDES = {
     'AA': 'AA/TT', 'AC': 'AC/GT', 'AG': 'AG/CT',
     'CA': 'CA/TG', 'CC': 'CC/GG', 'GA': 'GA/TC'
+}
+
+FEATURE_NAME_DICT = {
+    'yeast': {
+        'tf_binding:TF': 'TF binding', 
+        'histone_modifications:h3k27ac_tp1_0_merged': 'H3K27ac',
+        'histone_modifications:h3k36me3_tp1_0_merged': 'H3K36me3',
+        'histone_modifications:h3k4me3_tp1_0_merged': 'H3K4me3',
+        'histone_modifications:h3k4me_tp1_0_merged': 'H3K4me1',
+        'histone_modifications:h3k79me_tp1_0_merged': 'H3K79me1',
+        'histone_modifications:h4k16ac_tp1_0_merged': 'H4K16ac',
+        'chromatin_accessibility:BY4741_ypd_osm_0min.occ': 'Chrom acc',
+        'gene_expression:TF': 'GEX level', 
+        'gene_expression:variation': 'GEX var',
+        'dna_sequence:nt_freq_agg': 'Dinucleotides'
+    },
+    'human_k562': {
+        'tf_binding:TF': 'TF binding', 
+        'histone_modifications:K562_H3K27ac': 'H3K27ac',
+        'histone_modifications:K562_H3K27me3': 'H3K27me3',
+        'histone_modifications:K562_H3K36me3': 'H3K36me3',
+        'histone_modifications:K562_H3K4me1': 'H3K4me1',
+        'histone_modifications:K562_H3K4me3': 'H3K4me3',
+        'histone_modifications:K562_H3K9me3': 'H3K9me3',
+        'chromatin_accessibility:K562_atac': 'Chrom acc',
+        'gene_expression:median_level': 'GEX level', 
+        'gene_expression:variation': 'GEX var',
+        'dna_sequence:nt_freq_agg': 'DNA sequence'
+    },
+    'human_hek293': {
+        'tf_binding:TF': 'TF binding', 
+        'histone_modifications:HEK293_H3K27ac': 'H3K27ac',
+        'histone_modifications:HEK293_H3K27me3': 'H3K27me3',
+        'histone_modifications:HEK293_H3K36me3': 'H3K36me3',
+        'histone_modifications:HEK293_H3K4me1': 'H3K4me1',
+        'histone_modifications:HEK293_H3K4me3': 'H3K4me3',
+        'histone_modifications:HEK293_H3K9me3': 'H3K9me3',
+        'chromatin_accessibility:HEK293T_dnase': 'Chrom acc',
+        'gene_expression:median_level': 'GEX level', 
+        'gene_expression:variation': 'GEX var',
+        'dna_sequence:nt_freq_agg': 'DNA sequence'
+    },
+    'human_h1': {
+        'tf_binding:TF': 'TF binding', 
+        'histone_modifications:H3K27ac': 'H3K27ac',
+        'histone_modifications:H3K27me3': 'H3K27me3',
+        'histone_modifications:H3K36me3': 'H3K36me3',
+        'histone_modifications:H3K4me1': 'H3K4me1',
+        'histone_modifications:H3K4me3': 'H3K4me3',
+        'histone_modifications:H3K9me3': 'H3K9me3',
+        'chromatin_accessibility:H1_ChromAcc_intersect': 'Chrom acc',
+        'gene_expression:median_level': 'GEX level', 
+        'gene_expression:variation': 'GEX var',
+        'dna_sequence:nt_freq_agg': 'DNA sequence'
+    }
 }
 
 
@@ -73,58 +129,7 @@ def compare_model_stats(df, metric, comp_groups):
 def get_feature_indices(df, organism):
     """Parse feature indices for visualization.
     """
-    if organism == 'yeast':
-        feat_dict = {
-            'tf_binding:TF': 'TF binding', 
-            'histone_modifications:h3k27ac_tp1_0_merged': 'H3K27ac',
-            'histone_modifications:h3k36me3_tp1_0_merged': 'H3K36me3',
-            'histone_modifications:h3k4me3_tp1_0_merged': 'H3K4me3',
-            'histone_modifications:h3k4me_tp1_0_merged': 'H3K4me1',
-            'histone_modifications:h3k79me_tp1_0_merged': 'H3K79me1',
-            'histone_modifications:h4k16ac_tp1_0_merged': 'H4K16ac',
-            'chromatin_accessibility:BY4741_ypd_osm_0min.occ': 'Chrom acc',
-            'gene_expression:TF': 'GEX level', 
-            'gene_expression:variation': 'GEX var',
-            'dna_sequence:nt_freq_agg': 'Dinucleotides'}
-    elif organism == 'human_k562':
-        feat_dict = {
-            'tf_binding:TF': 'TF binding', 
-            'histone_modifications:K562_H3K27ac': 'H3K27ac',
-            'histone_modifications:K562_H3K27me3': 'H3K27me3',
-            'histone_modifications:K562_H3K36me3': 'H3K36me3',
-            'histone_modifications:K562_H3K4me1': 'H3K4me1',
-            'histone_modifications:K562_H3K4me3': 'H3K4me3',
-            'histone_modifications:K562_H3K9me3': 'H3K9me3',
-            'chromatin_accessibility:K562_atac': 'Chrom acc',
-            'gene_expression:median_level': 'GEX level', 
-            'gene_expression:variation': 'GEX var',
-            'dna_sequence:nt_freq_agg': 'DNA sequence'}
-    elif organism == 'human_hek293':
-        feat_dict = {
-            'tf_binding:TF': 'TF binding', 
-            'histone_modifications:HEK293_H3K27ac': 'H3K27ac',
-            'histone_modifications:HEK293_H3K27me3': 'H3K27me3',
-            'histone_modifications:HEK293_H3K36me3': 'H3K36me3',
-            'histone_modifications:HEK293_H3K4me1': 'H3K4me1',
-            'histone_modifications:HEK293_H3K4me3': 'H3K4me3',
-            'histone_modifications:HEK293_H3K9me3': 'H3K9me3',
-            'chromatin_accessibility:HEK293T_dnase': 'Chrom acc',
-            'gene_expression:median_level': 'GEX level', 
-            'gene_expression:variation': 'GEX var',
-            'dna_sequence:nt_freq_agg': 'DNA sequence'}
-    elif organism == 'human_h1':
-        feat_dict = {
-            'tf_binding:TF': 'TF binding', 
-            'histone_modifications:H3K27ac': 'H3K27ac',
-            'histone_modifications:H3K27me3': 'H3K27me3',
-            'histone_modifications:H3K36me3': 'H3K36me3',
-            'histone_modifications:H3K4me1': 'H3K4me1',
-            'histone_modifications:H3K4me3': 'H3K4me3',
-            'histone_modifications:H3K9me3': 'H3K9me3',
-            'chromatin_accessibility:H1_ChromAcc_intersect': 'Chrom acc',
-            'gene_expression:median_level': 'GEX level', 
-            'gene_expression:variation': 'GEX var',
-            'dna_sequence:nt_freq_agg': 'DNA sequence'}
+    feat_dict = FEATURE_NAME_DICT[organism]
 
     idx_df = pd.DataFrame()
     for _, row in df.iterrows():
@@ -217,7 +222,7 @@ def calculate_shap_net_influence(df, sum_over_type='tf'):
                         np.abs(subdf.loc[subdf['shap_dir'] == 'SHAP < 0', 'shap'].iloc[0])
             df2 = df2.append(pd.Series({
                 'label_name': label_name, 'feat_type_name': feat_type_name,
-                'tf': tf, 'auprc': subdf['auprc'].iloc[0], 'shap_diff': shap_diff
+                'tf': tf, 'shap_diff': shap_diff
                 }), ignore_index=True)
     elif sum_over_type == 'gene':
         for (label_name, feat_type_name, gene), subdf in df.groupby(['label_name', 'feat_type_name', 'gene']):
@@ -276,6 +281,131 @@ def parse_gene_shap_mtx(data_dir, tf, gene, width=15, use_abs=False, agg_dna=Tru
         target_df['shap'] = np.abs(target_df['shap'])
     return target_df
 
+
+def annotate_resp_type(resp_df, feat_mtx, feats_df, tf, three_resp_dir=True, bound_targets=None):
+    """Annotate the responsiveness type of each gene.
+    """
+    tfb_idx = feats_df.loc[(feats_df['feat_type'] == 'tf_binding'), ['start', 'end']].iloc[0]
+    tfb_sum = feat_mtx[range(tfb_idx['start'], tfb_idx['end'])].sum(axis=1).to_frame().rename(columns={0: 'tfb'})
+    
+    resp_df = resp_df[tf].to_frame().rename(columns={tf: 'resp'})
+    resp_df = resp_df.merge(tfb_sum, left_index=True, right_on='gene')
+    
+    resp_df['is_bound'] = 'Unbound'
+    if bound_targets is None:
+        resp_df.loc[resp_df['tfb'] > 0, 'is_bound'] = 'Bound'
+    else:
+        resp_df.loc[bound_targets, 'is_bound'] = 'Bound'
+    
+    if three_resp_dir:
+        resp_df['resp_dir'] = 'Non-responsive'
+        resp_df.loc[resp_df['resp'] > 0, 'resp_dir'] = 'Activated'
+        resp_df.loc[resp_df['resp'] < 0, 'resp_dir'] = 'Repressed'
+    else:
+        resp_df['resp_dir'] = 'Non-responsive'
+        resp_df.loc[resp_df['resp'] != 0, 'resp_dir'] = 'Responsive'
+    return resp_df[['is_bound', 'resp_dir']]
+
+
+def link_shap_to_coord_feats(feat_type, tfs, data_dir, resp_filepath, **kwargs):
+    """Link SHAP values to features at coordinate resolution.
+    """
+    is_tf_dependent = kwargs.get('is_tf_dependent', False)
+    feat_name = kwargs.get('feat_name', 'TF')
+    coord_offset = kwargs.get('coord_offset', None)
+    bin_width = kwargs.get('bin_width', None)
+    cc_dir = kwargs.get('cc_dir', None)
+    is_resp_format_long = kwargs.get('is_resp_format_long', False)
+    
+#     shap_df = pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir))
+#     shap_df = shap_df.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
+    print('Loading feature data ...', end=' ')
+    shap_subdf_list = []
+    for i, shap_subdf in enumerate(pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir), chunksize=10 ** 7, low_memory=False)):
+        print(i, end=' ')
+        shap_subdf = shap_subdf.rename(columns={'gene': 'tf:gene', 'feat': 'shap'})
+        shap_subdf['tf'] = shap_subdf['tf:gene'].apply(lambda x: x.split(':')[0])
+        if tfs is not None:
+            shap_subdf = shap_subdf[shap_subdf['tf'].isin(tfs)]
+        shap_subdf_list.append(shap_subdf[['tf:gene', 'feat_idx', 'shap']])
+    print()
+    shap_df = pd.concat(shap_subdf_list)
+    del shap_subdf_list
+    
+    feats_df = pd.read_csv('{}/feats.csv.gz'.format(data_dir), names=['feat_type', 'feat_name', 'start', 'end'])
+    
+    preds_df = pd.read_csv('{}/preds.csv.gz'.format(data_dir))
+    preds_df = preds_df[preds_df['tf'].isin(tfs)]
+    
+    tf_gene_pairs = np.loadtxt('{}/tf_gene_pairs.csv.gz'.format(data_dir), dtype=str)
+    feat_mtx_tfs = set([x.split(':')[0] for x in tf_gene_pairs])
+    if is_tf_dependent:
+        feat_mtx = np.loadtxt('{}/feat_mtx_tf.csv.gz'.format(data_dir), delimiter=',')
+    else:
+        feat_mtx_0 = np.loadtxt('{}/feat_mtx_nontf.csv.gz'.format(data_dir), delimiter=',')
+        feat_mtx = np.concatenate([feat_mtx_0] * len(feat_mtx_tfs))
+    feat_mtx = pd.DataFrame(data=feat_mtx, index=tf_gene_pairs)
+    feat_mtx = feat_mtx.reset_index().rename(columns={'index': 'tf:gene'})
+    feat_mtx['tf'] = feat_mtx['tf:gene'].apply(lambda x: x.split(':')[0])
+    feat_mtx['gene'] = feat_mtx['tf:gene'].apply(lambda x: x.split(':')[1])
+    
+    if is_resp_format_long:
+        resp_df = pd.read_csv(resp_filepath, index_col=None)
+        resp_df['has_sig_lfc'] = (resp_df['log2FoldChange'].abs() > 0.5).astype(int)
+        resp_df['has_sig_p'] = (resp_df['padj'] < 0.05).astype(int)
+        resp_df['is_resp'] = resp_df['has_sig_lfc'] * resp_df['has_sig_p']
+        resp_df = resp_df.pivot(index='gene_ensg', columns='tf_ensg', values='is_resp')
+    else:
+        resp_df = pd.read_csv(resp_filepath, index_col='GeneName')
+    resp_df.index.name = 'gene'
+    
+    annot_genes_df = pd.DataFrame()
+    
+    for tf in tfs:
+        if cc_dir is not None:
+            tfb_sig = pd.read_csv('{}/{}.sig_prom.txt'.format(cc_dir, tf), sep='\t')
+            tfb_targets = tfb_sig.loc[tfb_sig['Poisson pvalue'] < 10**-3, 'Systematic Name']
+            tfb_targets = np.intersect1d(tfb_targets, resp_df.index)
+        else:
+            tfb_targets = None
+
+        annot_subdf = annotate_resp_type(
+            resp_df, feat_mtx[feat_mtx['tf'] == tf].set_index('gene'), feats_df, tf, 
+            three_resp_dir=False, bound_targets=tfb_targets
+        )
+        annot_subdf = annot_subdf.reset_index().rename(columns={'index': 'gene'})
+        annot_subdf['tf'] = tf
+        annot_subdf['tf:gene'] = annot_subdf['tf'] + ':' + annot_subdf['gene']
+        annot_genes_df = annot_genes_df.append(annot_subdf)
+
+    feat_row = feats_df[(feats_df['feat_type'] == feat_type) & (feats_df['feat_name'] == feat_name)].iloc[0]
+    feat_mtx_idx_offset = 0 if is_tf_dependent else feats_df.loc[feats_df['feat_name'] == 'TF', 'end'].max()
+    
+    comb_df_list = []
+    
+    for feat_idx in range(feat_row['start'], feat_row['end']):
+        comb_df = preds_df[['label', 'pred', 'tf:gene']].merge(
+            shap_df.loc[shap_df['feat_idx'] == feat_idx], how='left', on='tf:gene'
+        )
+        comb_df = comb_df.merge(
+            feat_mtx[['tf:gene', feat_idx - feat_mtx_idx_offset]], on='tf:gene'
+        )
+        comb_df = comb_df.merge(
+            annot_genes_df, how='left', on='tf:gene'
+        )
+
+        comb_df = comb_df.rename(columns={feat_idx - feat_mtx_idx_offset: 'input'})
+        comb_df['label'] = comb_df['label'].astype(int).astype(str)
+        if bin_width is not None and coord_offset is not None:
+            comb_df['coord'] = (feat_idx - feat_row['start']) * bin_width - coord_offset
+        comb_df_list.append(comb_df)
+
+    return pd.concat(comb_df_list)
+
     
 def resp_ratio(x):
     return sum(x == 1) / len(x)
+
+
+def sigmoid(x, a ,b, k, c):
+    return a / (1 + np.exp(-k * (x - b))) + c
