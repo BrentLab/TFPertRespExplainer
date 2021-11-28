@@ -5,14 +5,10 @@ import h5py
 import numpy as np
 import pandas as pd
 from pybedtools import BedTool
-import logging.config
 
+from logger import logger
 from data_preproc_utils import create_regdna, intersect_peak_regdna, \
     calculate_matrix_position, get_onehot_dna_sequence_slim, get_nt_frequency
-
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
 
 
 def parse_args(argv):
@@ -136,7 +132,7 @@ def generate_features(h5, tss, regdna, feat_dict):
                     ## Load gene expression matrix and sort genes in the 
                     ## same dimension as other features
                     expr_df = pd.read_csv(v2, index_col=0)
-                    expr_df = expr_df.loc[genes]
+                    expr_df = expr_df.reindex(genes)
                     if k1 == 'gene_variation':
                         g.create_dataset(
                             'variation',

@@ -1,45 +1,24 @@
 import sys
-import os.path
 import argparse
-import configparser
 import warnings
-import logging.config
 
+import config
+from logger import logger
 from modeling_utils import *
 from response_explainer import TFPRExplainer
 
 
 warnings.filterwarnings("ignore")
 
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-
-## Load default configuration
-config = configparser.ConfigParser()
-config.read('config.ini')
-
-RAND_NUM = int(config['DEFAULT']['rand_num'])
+RAND_NUM = config.rand_num
 np.random.seed(RAND_NUM)
-
-PROMOTER_UPSTREAM_BOUND = int(config['HUMAN']['promoter_upstream_bound'])
-PROMOTER_DOWNSTREAM_BOUND = int(config['HUMAN']['promoter_downstream_bound'])
-ENHANCER_UPSTREAM_BOUND = int(config['HUMAN']['enhancer_upstream_bound'])
-ENHANCER_DOWNSTREAM_BOUND = int(config['HUMAN']['enhancer_downstream_bound'])
-
-PROMOTER_BIN_WIDTH = int(config['HUMAN']['promoter_bin_width'])
-ENHANCER_BIN_TYPE = str(config['HUMAN']['enhancer_bin_type'])
-ENHANCER_CLOSEST_BIN_WIDTH = int(config['HUMAN']['enhancer_closest_bin_width'])
-
-MIN_RESP_LFC = float(config['HUMAN']['min_response_lfc'])
-MAX_RESP_P = float(config['HUMAN']['max_response_p'])
 
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
-        '-i', '--tf', required=True,
-        help='Perturbed TF.')
+        '-i', '--tfs', required=True, nargs='*',
+        help='Perturbed TFs.')
     parser.add_argument(
         '-f', '--feature_types', required=True, nargs='*',
         help='Feature type(s) to be included in feature matrix (delimited by single space).')
@@ -53,8 +32,13 @@ def parse_args(argv):
         '-o', '--output_dir', required=True,
         help='Output directory path.')
     parser.add_argument(
-        '--is_regressor', action='store_true',
-        help='Classifier (default) or regressor.')
+        '--model_tuning', action='store_true',
+        help='Enable model turning.')
+    parser.add_argument(
+        '--model_config', default='MODEL_CONFIG/human_default_config.json',
+        help='Json file for pretrained model hyperparameters.')
+    parser.add_argument(
+        '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
     return parsed
 
@@ -66,46 +50,52 @@ def main(argv):
     filepath_dict = {
         'feat_h5': args.feature_h5,
         'resp_label': args.response_label,
-        'output_dir': args.output_dir}
+        'output_dir': args.output_dir
+    }
     feat_info_dict = {
-        'tf': args.tf,
+        'tfs': args.tfs,
         'feat_types': args.feature_types,
-        'promo_bound': (PROMOTER_UPSTREAM_BOUND, PROMOTER_DOWNSTREAM_BOUND),
-        'promo_width': PROMOTER_BIN_WIDTH,
-        'enhan_bound': (ENHANCER_UPSTREAM_BOUND, ENHANCER_DOWNSTREAM_BOUND),
-        'enhan_min_width': ENHANCER_CLOSEST_BIN_WIDTH if ENHANCER_BIN_TYPE == 'binned' else None}
-    is_regressor = args.is_regressor
+        'promo_bound': (config.human_promoter_upstream_bound, config.human_promoter_downstream_bound),
+        'promo_width': config.human_promoter_bin_width,
+        'enhan_bound': (config.human_enhancer_upstream_bound, config.human_enhancer_downstream_bound),
+        'enhan_min_width': config.human_enhancer_closest_bin_width if config.human_enhancer_bin_type == 'binned' else None
+    }
+    model_hyparams = load_model_config(args.model_config)
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
-    feat_mtx, features, label_df = construct_expanded_input(filepath_dict, feat_info_dict)
 
-    if is_regressor:
-        label_df = label_df['log2FoldChange'].abs()
-    else:
-        label_df = binarize_label(label_df, MIN_RESP_LFC, MAX_RESP_P)
-        n_resp = sum(label_df)
-        logger.info('Responsive targets = {} / {}'.format(n_resp, label_df.shape[0]))
-        if n_resp < 10:
-            logger.error('The number of responsive targets < cross-validation folds. ==> Aborted <==')
-            sys.exit(1)
-    
-    logger.info('Label dim={}, feat mtx dim={}'.format(label_df.shape, feat_mtx.shape))
+    tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = \
+        construct_expanded_input(filepath_dict, feat_info_dict)
+    label_df_dict = {tf: binarize_label(
+        ldf, config.human_min_response_lfc, config.human_max_response_p
+    ) for tf, ldf in label_df_dict.items()}
+
+    logger.info('Per TF, label dim={}, TF-related feat dim={}, TF-unrelated feat dim={}'.format(
+        label_df_dict[feat_info_dict['tfs'][0]].shape, 
+        tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
+        nontf_feat_mtx.shape))
 
     ## Model prediction and explanation
-    tfpr_explainer = TFPRExplainer(feat_mtx, features, label_df)
-    logger.info('==> Cross validating response prediction model <==')
-    tfpr_explainer.cross_validate(is_regressor)
+    tfpr_explainer = TFPRExplainer(
+        tf_feat_mtx_dict, nontf_feat_mtx, features, 
+        label_df_dict, filepath_dict['output_dir'], model_hyparams
+    )
+    
+    if args.model_tuning:
+        logger.info('==> Tuning model hyperparameters <==')
+        tfpr_explainer.tune_hyparams()
 
-    logger.info('==> Analyzing feature contributions <==')
-    tfpr_explainer.explain()
+    logger.info('==> Cross validating response prediction model <==')
+    tfpr_explainer.cross_validate()
+
+    # TODO: to be removed in release
+    if not args.disable_shap:
+        logger.info('==> Analyzing feature contributions <==')
+        tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
-    child_dir = feat_info_dict['tf']
-    tf_output_dir = '{}/{}'.format(filepath_dict['output_dir'], child_dir)
-    if not os.path.exists(tf_output_dir):
-        os.makedirs(tf_output_dir)
-    tfpr_explainer.save(tf_output_dir)
+    tfpr_explainer.save()
     
     logger.info('==> Completed <==')
 

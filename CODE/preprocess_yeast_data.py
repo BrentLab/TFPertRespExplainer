@@ -1,25 +1,15 @@
 import sys
 import os.path
 import argparse
-import configparser
 import h5py
 import numpy as np
 import pandas as pd
 from pybedtools import BedTool
-import logging.config
 
+import config
+from logger import logger
 from data_preproc_utils import create_regdna, intersect_peak_regdna, \
     calculate_matrix_position, get_onehot_dna_sequence, get_nt_frequency
-
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-
-## Load default configuration
-config = configparser.ConfigParser()
-config.read('config.ini')
-FEAT_UPSTREAM_BOUND = int(config['YEAST']['feat_upstream_bound'])
-FEAT_DOWNSTREAM_BOUND = int(config['YEAST']['feat_downstream_bound'])
 
 
 def parse_args(argv):
@@ -50,7 +40,7 @@ def parse_args(argv):
         help='Csv file for gene expression variation data.')
     parser.add_argument(
         '--feat_bound', nargs='*', type=int, 
-        default=(FEAT_UPSTREAM_BOUND, FEAT_DOWNSTREAM_BOUND),
+        default=(config.yeast_promoter_upstream_bound, config.yeast_promoter_downstream_bound),
         help='Distance of upstream and downstream boundaries to TSS (in tuple).')
     parsed = parser.parse_args(argv[1:])
     return parsed

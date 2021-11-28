@@ -1,38 +1,24 @@
 import sys
-import os.path
 import argparse
-import configparser
 import warnings
-import logging.config
 
+import config
+from logger import logger
 from modeling_utils import *
 from response_explainer import TFPRExplainer
 
 
 warnings.filterwarnings("ignore")
 
-## Intialize logger
-logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-
-## Load default configuration
-config = configparser.ConfigParser()
-config.read('config.ini')
-
-RAND_NUM = int(config['DEFAULT']['rand_num'])
+RAND_NUM = config.rand_num
 np.random.seed(RAND_NUM)
-
-PROMOTER_BINS = int(config['YEAST']['promoter_bins'])
-PROMOTER_UPSTREAM_BOUND = int(config['YEAST']['promoter_upstream_bound'])
-PROMOTER_DOWNSTREAM_BOUND = int(config['YEAST']['promoter_downstream_bound'])
-MIN_RESP_LFC = float(config['YEAST']['min_response_lfc'])
 
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
-        '-i', '--tf', required=True,
-        help='Perturbed TF.')
+        '-i', '--tfs', required=True, nargs='*',
+        help='Perturbed TFs.')
     parser.add_argument(
         '-f', '--feature_types', required=True, nargs='*',
         help='Feature type(s) to be included in feature matrix (delimited by single space).')
@@ -46,11 +32,13 @@ def parse_args(argv):
         '-o', '--output_dir', required=True,
         help='Output directory path.')
     parser.add_argument(
-        '--is_regressor', action='store_true',
-        help='Classifier (default) or regressor.')
+        '--model_tuning', action='store_true',
+        help='Enable model turning.')
     parser.add_argument(
-        '--aux_tfs', nargs='*', default=None,
-        help='Auxiliary TFs, whose binding data are included.')
+        '--model_config', default='MODEL_CONFIG/yeast_default_config.json',
+        help='Json file for pretrained model hyperparameters.')
+    parser.add_argument(
+        '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
     return parsed
 
@@ -62,35 +50,60 @@ def main(argv):
     filepath_dict = {
         'feat_h5': args.feature_h5,
         'resp_label': args.response_label,
-        'output_dir': args.output_dir}
+        'output_dir': args.output_dir
+    }
     feat_info_dict = {
-        'tf': args.tf,
+        'tfs': args.tfs,
         'feat_types': args.feature_types,
-        'feat_bins': PROMOTER_BINS,
-        'feat_length': PROMOTER_UPSTREAM_BOUND + PROMOTER_DOWNSTREAM_BOUND,
-        'aux_tfs': args.aux_tfs}
-    is_regressor = args.is_regressor
+        'feat_bins': config.yeast_promoter_bins,
+        'feat_length': config.yeast_promoter_upstream_bound + config.yeast_promoter_downstream_bound
+    }
+    model_hyparams = load_model_config(args.model_config)
 
     ## Construct input feature matrix and labels
     logger.info('==> Constructing labels and feature matrix <==')
-    feat_mtx, features, label_df = construct_fixed_input(filepath_dict, feat_info_dict)
-    label_df = label_df.abs() if is_regressor else binarize_label(label_df, MIN_RESP_LFC)
-    logger.info('Label dim={}, feat mtx dim={}'.format(label_df.shape, feat_mtx.shape))
+    
+    tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = \
+        construct_fixed_input(filepath_dict, feat_info_dict)
+    label_df_dict = {tf: binarize_label(
+        ldf, config.yeast_min_response_lfc
+    ) for tf, ldf in label_df_dict.items()}
+    
+    logger.info('Per TF, label dim={}, TF-related feat dim={}, TF-unrelated feat dim={}'.format(
+        label_df_dict[feat_info_dict['tfs'][0]].shape, 
+        tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
+        nontf_feat_mtx.shape))
+
+    # # TODO: delete data pickling
+    # import pickle
+
+    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'wb') as f: 
+    #     pickle.dump([tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict], f)
+
+    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'rb') as f: 
+    #     tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = pickle.load(f)
+    # # END OF TODO
 
     ## Model prediction and explanation
-    tfpr_explainer = TFPRExplainer(feat_mtx, features, label_df)
-    logger.info('==> Cross validating response prediction model <==')
-    tfpr_explainer.cross_validate(is_regressor)
+    tfpr_explainer = TFPRExplainer(
+        tf_feat_mtx_dict, nontf_feat_mtx, features, 
+        label_df_dict, filepath_dict['output_dir'], model_hyparams
+    )
+    
+    if args.model_tuning:
+        logger.info('==> Tuning model hyperparameters <==')
+        tfpr_explainer.tune_hyparams()
 
-    logger.info('==> Analyzing feature contributions <==')
-    tfpr_explainer.explain()
+    logger.info('==> Cross validating response prediction model <==')
+    tfpr_explainer.cross_validate()
+
+    # TODO: to be removed in release
+    if not args.disable_shap:
+        logger.info('==> Analyzing feature contributions <==')
+        tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
-    child_dir = feat_info_dict['tf']
-    tf_output_dir = '{}/{}'.format(filepath_dict['output_dir'], child_dir)
-    if not os.path.exists(tf_output_dir):
-        os.makedirs(tf_output_dir)
-    tfpr_explainer.save(tf_output_dir)
+    tfpr_explainer.save()
     
     logger.info('==> Completed <==')
 

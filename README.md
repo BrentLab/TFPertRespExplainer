@@ -11,7 +11,7 @@ conda create -n tfpr_exp python=3.6.10
 conda activate tfpr_exp
 conda config --append channels conda-forge 
 conda config --append channels bioconda
-conda install numpy==1.19.2 pandas==1.1.3 scikit-learn==0.22.1 jupyterlab==2.2.6 jedi==0.17.2 pybedtools==0.8.0 biopython==1.78 h5py==2.10.0 multiprocess==0.70.11.1 xgboost==0.90 shap==0.35.0 plotnine==0.7.1
+conda install numpy==1.19.2 pandas==1.1.3 scikit-learn==0.22.1 jupyterlab==2.2.6 jedi==0.17.2 pybedtools==0.8.0 biopython==1.78 h5py==2.10.0 multiprocess==0.70.11.1 xgboost==0.90 shap==0.35.0 plotnine==0.7.1 hyperopt=0.2.5
 ```
 
 ## Usage
