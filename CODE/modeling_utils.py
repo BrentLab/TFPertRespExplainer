@@ -1,5 +1,7 @@
 import sys
 import json
+import re
+from os import listdir
 import numpy as np
 import pandas as pd
 import h5py
@@ -629,7 +631,31 @@ def compile_mp_results(mp_dicts):
             result_dict[d].append(mp_dicts[k].get()[d])
     return result_dict
 
+def permute_labels(y):
+    """Randomly permute the labels.
+    """
+    y2 = y.sample(frac=1)
+    y2.index = y.index
+
+    return y2
+
 
 def load_model_config(filepath):
     with open(filepath, 'r') as f:
         return json.load(f)
+
+def check_last_run(output_dir):
+    subdirs = listdir(output_dir)
+    last_run_num = 0
+
+    rgx = re.compile("([a-zA-Z]+)([0-9]+)")
+    for output_subdir in subdirs:
+        m = rgx.match(output_subdir)
+
+        assert len(m.groups()) == 2      # permutation output subdir must be OUTPUT_DIR/perm<run_num>
+        assert m.group(1) == "perm"
+
+        run_num = int(m.group(2))
+        last_run_num = run_num if run_num > last_run_num else last_run_num
+
+    return last_run_num
