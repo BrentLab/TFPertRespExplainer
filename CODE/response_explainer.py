@@ -49,10 +49,17 @@ class TFPRExplainer:
         self.tf_X = np.vstack([self.tf_X_dict[tf] for tf in self.tfs])
         self.y = np.hstack([self.y_dict[tf].values for tf in self.tfs])
 
-    def cross_validate(self):
+    def data_setup_permute(self):
+        label_permute_df_dict = {tf: permute_labels(ldf) for tf, ldf in self.y_dict.items()}
+        self.y_permute = np.hstack([label_permute_df_dict[tf].values for tf in self.tfs])
+
+
+    def cross_validate(self, permute=False):
         """Cross valdiate a classifier or regressor using multiprocessing.
         """
         self.data_setup()
+        if permute:
+            self.data_setup_permute()
 
         with mp.Pool(processes=self.k_folds) as pool:
             mp_results = {}
@@ -64,7 +71,11 @@ class TFPRExplainer:
                 tr_idx = expand_tf2gene_index(tf_tr_idx, self.n_genes)
                 te_idx = expand_tf2gene_index(tf_te_idx, self.n_genes)
                 
-                y_tr, y_te = self.y[tr_idx], self.y[te_idx]
+                if permute:
+                    y_tr, y_te = self.y_permute[tr_idx], self.y[te_idx]
+                else:
+                    y_tr, y_te = self.y[tr_idx], self.y[te_idx]
+
                 tf_X_tr, tf_X_te = self.tf_X[tr_idx], self.tf_X[te_idx]
 
                 tf_X_tr, tf_X_te = standardize_feat_mtx(tf_X_tr, tf_X_te, 'zscore')
@@ -82,6 +93,10 @@ class TFPRExplainer:
                         self.model_hyparams))
 
             self.cv_results = compile_mp_results(mp_results)
+
+    
+
+
 
     def tune_hyparams(self):
         """Tune hyperparameters of a classifier or regressor using a subset of 

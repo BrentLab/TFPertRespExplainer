@@ -1,4 +1,5 @@
 import sys
+import os.path
 import argparse
 import warnings
 
@@ -33,14 +34,70 @@ def parse_args(argv):
         help='Output directory path.')
     parser.add_argument(
         '--model_tuning', action='store_true',
-        help='Enable model turning.')
+        help='Enable model tuning.')
     parser.add_argument(
         '--model_config', default='MODEL_CONFIG/human_default_config.json',
         help='Json file for pretrained model hyperparameters.')
     parser.add_argument(
+        '--permutations', action='store_true',
+        help="Enable permutations.")
+    parser.add_argument(
+        '-N', '--number_of_permutations', type=int, nargs='?', const=5, choices=range(1,100),
+        help="Number of permutation runs (default 5).")
+    parser.add_argument(
+        '--enable_permutation_shap', action='store_true',
+        help="Enable SHAP for permutation runs. Permutations will default to not calculating SHAP values\n(using this flag will make permutations training significantly longer.")
+    parser.add_argument(
         '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
     return parsed
+
+
+
+def run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_dir, model_hyparams, model_tuning, permutations, number_of_permutations, disable_shap):
+
+    last_run_num = 0
+
+    if permutations: 
+        logger.info('==> Setting up permutation runs <==')
+
+        logger.info('# checking for existing permutations runs')
+        last_run_num = check_last_run(output_dir)
+
+        logger.info('### Scheduling runs: %s-%s ###', last_run_num+1, last_run_num+number_of_permutations)
+    else:
+        number_of_permutations=1
+
+    for run_num in range(last_run_num+1, last_run_num+number_of_permutations+1):
+        if permutations: 
+            output_subdir = os.path.join(output_dir, "perm{}".format(run_num))
+
+        ## Model prediction and explanation
+        tfpr_explainer = TFPRExplainer(
+            tf_feat_mtx_dict, nontf_feat_mtx, features, 
+            label_df_dict, output_subdir, model_hyparams
+        )
+
+        if model_tuning:
+            logger.info('==> Tuning model hyperparameters <==')
+            tfpr_explainer.tune_hyparams()
+
+        logger.info('==> Cross validating response prediction model <==')
+        tfpr_explainer.cross_validate(permute=permutations)
+
+        # TODO: to be removed in release
+        if not disable_shap:
+            logger.info('==> Analyzing feature contributions <==')
+            tfpr_explainer.explain()
+
+        logger.info('==> Saving output data <==')
+        tfpr_explainer.save()
+
+        if permutations:
+            logger.info('==> Completed RUN %s <==', run_num)
+
+    logger.info('==> Completed <==')
+
 
 
 def main(argv):
@@ -76,28 +133,7 @@ def main(argv):
         tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
         nontf_feat_mtx.shape))
 
-    ## Model prediction and explanation
-    tfpr_explainer = TFPRExplainer(
-        tf_feat_mtx_dict, nontf_feat_mtx, features, 
-        label_df_dict, filepath_dict['output_dir'], model_hyparams
-    )
-    
-    if args.model_tuning:
-        logger.info('==> Tuning model hyperparameters <==')
-        tfpr_explainer.tune_hyparams()
-
-    logger.info('==> Cross validating response prediction model <==')
-    tfpr_explainer.cross_validate()
-
-    # TODO: to be removed in release
-    if not args.disable_shap:
-        logger.info('==> Analyzing feature contributions <==')
-        tfpr_explainer.explain()
-    
-    logger.info('==> Saving output data <==')
-    tfpr_explainer.save()
-    
-    logger.info('==> Completed <==')
+    run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, filepath_dict['output_dir'], model_hyparams, args.model_tuning, args.permutations, args.number_of_permutations, args.disable_shap)
 
 
 if __name__ == "__main__":
