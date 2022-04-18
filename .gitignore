@@ -5,6 +5,7 @@ OUTPUT/*
 LOG/*
 JOBS/
 NOTEBOOKS/helper_data/*
+WORKING_NOTEBOOKS/g3_revision/*
 
 !RESOURCES/.gitignore
 !OUTPUT/.gitignore
