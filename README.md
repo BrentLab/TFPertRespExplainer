@@ -60,7 +60,9 @@ $ python3 CODE/preprocess_yeast_data.py \
     --gene_var <pre-pert gex variations (.csv)> 
 ```
 
-For human data, use `CODE/preprocess_human_data.py` with the above set of arguments with the additional `-r` for distal enhancer and promoter data.
+For human data, use `CODE/preprocess_human_data.py` with the above set of arguments with the additional `-r <regulatory elements (.bed)>` for distal enhancer and promoter data.
+
+For running random permutation on human data, enable it by setting `--permutations` (default to 5 runs) and optionally set the number of permutations by `--number_of_permutations <n>`.
 
 ### Response label
 

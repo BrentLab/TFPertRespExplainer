@@ -44,15 +44,11 @@ def parse_args(argv):
     parser.add_argument(
         '-N', '--number_of_permutations', type=int, nargs='?', const=5, choices=range(1,100),
         help="Number of permutation runs (default 5).")
-    parser.add_argument(
-        '--enable_permutation_shap', action='store_true',
-        help="Enable SHAP for permutation runs. Permutations will default to not calculating SHAP values\n(using this flag will make permutations training significantly longer.")
     parsed = parser.parse_args(argv[1:])
     return parsed
 
 
-
-def run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_dir, model_hyparams, model_tuning, permutations, number_of_permutations, disable_shap):
+def run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_dir, model_hyparams, model_tuning, permutations, number_of_permutations):
 
     last_run_num = 0
 
@@ -82,6 +78,10 @@ def run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_d
 
         logger.info('==> Cross validating response prediction model <==')
         tfpr_explainer.cross_validate(permute=permutations)
+
+        if not permutations:
+            logger.info('==> Analyzing feature contributions <==')
+            tfpr_explainer.explain()
 
         logger.info('==> Saving output data <==')
         tfpr_explainer.save()
@@ -126,7 +126,7 @@ def main(argv):
         tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
         nontf_feat_mtx.shape))
 
-    run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, filepath_dict['output_dir'], model_hyparams, args.model_tuning, args.permutations, args.number_of_permutations, args.disable_shap)
+    run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, filepath_dict['output_dir'], model_hyparams, args.model_tuning, args.permutations, args.number_of_permutations)
 
 
 if __name__ == "__main__":
