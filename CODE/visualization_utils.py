@@ -146,7 +146,6 @@ def get_feature_indices(df, organism):
 def calculate_resp_and_unresp_signed_shap_sum(data_dir, tfs=None, organism='yeast', sum_over_type='tf'):
     """Calculate the sum of SHAP values within responsive and unresponsive genes respectively.
     """
-    # TODO: update shap csv header
     print('Loading feature data ...', end=' ')
     shap_subdf_list = []
     for i, shap_subdf in enumerate(pd.read_csv('{}/feat_shap_wbg.csv.gz'.format(data_dir), chunksize=10 ** 7, low_memory=False)):
