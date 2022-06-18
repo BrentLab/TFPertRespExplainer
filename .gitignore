@@ -11,3 +11,5 @@ NOTEBOOKS/helper_data/*
 
 .*DS_Store
 .ipynb_checkpoints/
+.idea/
+.vscode/

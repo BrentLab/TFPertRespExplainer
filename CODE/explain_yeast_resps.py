@@ -37,8 +37,6 @@ def parse_args(argv):
     parser.add_argument(
         '--model_config', default='MODEL_CONFIG/yeast_default_config.json',
         help='Json file for pretrained model hyperparameters.')
-    parser.add_argument(
-        '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
     return parsed
 
@@ -74,16 +72,6 @@ def main(argv):
         tf_feat_mtx_dict[feat_info_dict['tfs'][0]].shape,
         nontf_feat_mtx.shape))
 
-    # # TODO: delete data pickling
-    # import pickle
-
-    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'wb') as f: 
-    #     pickle.dump([tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict], f)
-
-    # with open(filepath_dict['output_dir'] + '/input_data.pkl', 'rb') as f: 
-    #     tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict = pickle.load(f)
-    # # END OF TODO
-
     ## Model prediction and explanation
     tfpr_explainer = TFPRExplainer(
         tf_feat_mtx_dict, nontf_feat_mtx, features, 
@@ -96,11 +84,6 @@ def main(argv):
 
     logger.info('==> Cross validating response prediction model <==')
     tfpr_explainer.cross_validate()
-
-    # TODO: to be removed in release
-    if not args.disable_shap:
-        logger.info('==> Analyzing feature contributions <==')
-        tfpr_explainer.explain()
     
     logger.info('==> Saving output data <==')
     tfpr_explainer.save()

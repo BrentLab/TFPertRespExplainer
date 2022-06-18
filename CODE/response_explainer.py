@@ -211,7 +211,6 @@ class TFPRExplainer:
             '{}/feat_mtx_nontf.csv.gz'.format(self.output_dirpath), self.nontf_X,
             fmt='%.8f', delimiter=',')
 
-        # TODO
         if hasattr(self, 'shap_vals'):
             for k, df in enumerate(self.shap_vals):
                 df['cv'] = k
@@ -283,22 +282,6 @@ def train_classifier(X, y, model_hyparams):
 
     model.fit(X, y)
     return model
-
-
-# TODO: clean up in release
-# def train_regressor(X, y):
-#     """Train a XGBoost regressor.
-#     """
-#     model = xgb.XGBRegressor(
-#         n_estimators=2500,
-#         learning_rate=.01,
-#         objective='reg:squarederror',
-#         booster='gbtree',
-#         n_jobs=-1,
-#         random_state=RAND_NUM
-#     )
-#     model.fit(X, y)
-#     return model
 
 
 def calculate_tree_shap(model, X, genes, X_bg):

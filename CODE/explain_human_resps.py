@@ -47,8 +47,6 @@ def parse_args(argv):
     parser.add_argument(
         '--enable_permutation_shap', action='store_true',
         help="Enable SHAP for permutation runs. Permutations will default to not calculating SHAP values\n(using this flag will make permutations training significantly longer.")
-    parser.add_argument(
-        '--disable_shap', action='store_true',)
     parsed = parser.parse_args(argv[1:])
     return parsed
 
@@ -84,11 +82,6 @@ def run_tfpr(tf_feat_mtx_dict, nontf_feat_mtx, features, label_df_dict, output_d
 
         logger.info('==> Cross validating response prediction model <==')
         tfpr_explainer.cross_validate(permute=permutations)
-
-        # TODO: to be removed in release
-        if not disable_shap:
-            logger.info('==> Analyzing feature contributions <==')
-            tfpr_explainer.explain()
 
         logger.info('==> Saving output data <==')
         tfpr_explainer.save()
